@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import Link from "next/link";
 
 type Employee = {
   employeeId: string;
@@ -89,12 +90,16 @@ export default function Home() {
                   <p className="text-lg font-semibold text-slate-900">
                     歡迎，{result.employee.name} ({result.employee.department})
                   </p>
-                  <button
-                    type="button"
+                  <Link
+                    href={`/survey?employeeId=${encodeURIComponent(
+                      result.employee.employeeId
+                    )}&name=${encodeURIComponent(result.employee.name)}&department=${encodeURIComponent(
+                      result.employee.department
+                    )}`}
                     className="mx-auto mt-2 inline-flex rounded-2xl bg-slate-900 px-6 py-3 text-base font-semibold text-white transition hover:bg-slate-700"
                   >
                     下一步
-                  </button>
+                  </Link>
                 </div>
               ) : (
                 <p className="text-base font-medium text-red-600">
