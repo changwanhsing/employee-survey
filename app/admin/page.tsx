@@ -114,7 +114,7 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-zinc-50 text-slate-900">
-      <main className="mx-auto min-h-screen max-w-4xl px-5 py-10">
+      <main className="mx-auto min-h-screen max-w-4xl px-4 py-8 sm:px-5 sm:py-10">
         <div className="mb-8 text-center">
           <p className="text-sm font-semibold uppercase tracking-[0.3em] text-zinc-500">
             調查系統
@@ -142,7 +142,7 @@ export default function AdminPage() {
 
         {submissions !== null && employees !== null && (
           <>
-            <div className="mb-8 rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm shadow-zinc-200/50">
+            <div className="mb-8 rounded-3xl border border-zinc-200 bg-white p-5 sm:p-6 shadow-sm shadow-zinc-200/50">
               <h2 className="mb-4 text-lg font-semibold text-slate-900">
                 品項總計（共 {submissions.length} 人送出）
               </h2>
@@ -159,7 +159,7 @@ export default function AdminPage() {
               </div>
             </div>
 
-            <div className="mb-8 rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm shadow-zinc-200/50">
+            <div className="mb-8 rounded-3xl border border-zinc-200 bg-white p-5 sm:p-6 shadow-sm shadow-zinc-200/50">
               <h2 className="mb-4 text-lg font-semibold text-slate-900">
                 各部門送出進度（共 {employees.length} 人，已送出 {submittedIds.size} 人）
               </h2>
@@ -186,7 +186,7 @@ export default function AdminPage() {
               </div>
             </div>
 
-            <div className="mb-8 rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm shadow-zinc-200/50">
+            <div className="mb-8 rounded-3xl border border-zinc-200 bg-white p-5 sm:p-6 shadow-sm shadow-zinc-200/50">
               <h2 className="mb-4 text-lg font-semibold text-slate-900">
                 未送出名單（{unsubmitted.length} 人）
               </h2>
@@ -209,7 +209,7 @@ export default function AdminPage() {
               )}
             </div>
 
-            <div className="mb-8 overflow-x-auto rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm shadow-zinc-200/50">
+            <div className="mb-8 overflow-x-auto rounded-3xl border border-zinc-200 bg-white p-5 sm:p-6 shadow-sm shadow-zinc-200/50">
               <h2 className="mb-4 text-lg font-semibold text-slate-900">
                 品項 × 部門 數量統計
               </h2>
@@ -279,7 +279,7 @@ export default function AdminPage() {
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="搜尋工號、姓名或部門"
-                className="w-full rounded-2xl border border-zinc-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                className="w-full rounded-2xl border border-zinc-300 bg-white px-4 py-3 text-base text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
               />
             </div>
 

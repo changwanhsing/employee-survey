@@ -50,7 +50,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-zinc-50 text-slate-900">
-      <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-5 py-10">
+      <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4 py-8 sm:px-5 sm:py-10">
         <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm shadow-zinc-200/50">
           <div className="mb-8 text-center">
             <p className="text-sm font-semibold uppercase tracking-[0.3em] text-zinc-500">
