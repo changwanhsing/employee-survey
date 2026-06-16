@@ -1,9 +1,11 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { mooncakeItems } from "@/src/data/mooncakeItems";
 import Link from "next/link";
+
+type LockedItem = { itemId: string; quantity: number };
 
 export default function SurveyPage() {
   const searchParams = useSearchParams();
@@ -14,9 +16,49 @@ export default function SurveyPage() {
   const [quantities, setQuantities] = useState<Record<string, number>>(
     () => Object.fromEntries(mooncakeItems.map((item) => [item.id, 0]))
   );
-  const [submitted, setSubmitted] = useState(false);
+  const [hasPreviousSubmission, setHasPreviousSubmission] = useState(false);
+  const [justSubmitted, setJustSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [checkingStatus, setCheckingStatus] = useState(true);
+  const [deadlineExpired, setDeadlineExpired] = useState(false);
+  const [deadline, setDeadline] = useState<string | null>(null);
+
+  const hasEmployeeInfo = Boolean(employeeId && employeeName && department);
+
+  useEffect(() => {
+    if (!hasEmployeeInfo) {
+      setCheckingStatus(false);
+      return;
+    }
+    Promise.all([
+      fetch(`/api/submit/check?employeeId=${encodeURIComponent(employeeId)}`).then((res) =>
+        res.json()
+      ),
+      fetch("/api/deadline").then((res) => res.json()),
+    ])
+      .then(
+        ([checkData, deadlineData]: [
+          { submitted: boolean; items?: LockedItem[] },
+          { deadline: string | null; expired: boolean }
+        ]) => {
+          if (checkData.submitted) {
+            setHasPreviousSubmission(true);
+            setQuantities((current) => {
+              const next = { ...current };
+              for (const entry of checkData.items ?? []) {
+                next[entry.itemId] = entry.quantity;
+              }
+              return next;
+            });
+          }
+          setDeadlineExpired(deadlineData.expired);
+          setDeadline(deadlineData.deadline);
+        }
+      )
+      .catch(() => {})
+      .finally(() => setCheckingStatus(false));
+  }, [employeeId, hasEmployeeInfo]);
 
   const selectedItems = useMemo(
     () =>
@@ -48,10 +90,15 @@ export default function SurveyPage() {
           quantities,
         }),
       });
+      if (response.status === 403) {
+        setDeadlineExpired(true);
+        return;
+      }
       if (!response.ok) {
         throw new Error("送出失敗");
       }
-      setSubmitted(true);
+      setHasPreviousSubmission(true);
+      setJustSubmitted(true);
     } catch {
       setSubmitError("送出失敗，請稍後再試。");
     } finally {
@@ -59,7 +106,9 @@ export default function SurveyPage() {
     }
   };
 
-  const hasEmployeeInfo = employeeId && employeeName && department;
+  const showLockedSummary = deadlineExpired && hasPreviousSubmission;
+  const showDeadlineBlocked = deadlineExpired && !hasPreviousSubmission;
+  const showConfirmation = justSubmitted && !deadlineExpired;
 
   return (
     <div className="min-h-screen bg-zinc-50 text-slate-900">
@@ -85,6 +134,118 @@ export default function SurveyPage() {
                 返回首頁
               </Link>
             </div>
+          ) : checkingStatus ? (
+            <p className="text-center text-slate-600">載入中...</p>
+          ) : showDeadlineBlocked ? (
+            <div className="space-y-4 rounded-2xl border border-amber-100 bg-amber-50 p-5 text-amber-800">
+              <p className="font-semibold">已超過收件期限，無法送出。</p>
+              {deadline && (
+                <p className="text-sm">
+                  收件截止時間：{new Date(deadline).toLocaleString("zh-TW")}
+                </p>
+              )}
+              <Link
+                href="/"
+                className="inline-flex rounded-2xl bg-slate-900 px-5 py-3 text-base font-semibold text-white transition hover:bg-slate-700"
+              >
+                返回首頁
+              </Link>
+            </div>
+          ) : showLockedSummary ? (
+            <div className="space-y-6 text-center">
+              <div className="flex justify-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
+                  <svg
+                    className="h-8 w-8 text-emerald-600"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              </div>
+              <h2 className="text-xl font-bold text-slate-900">已超過收件期限</h2>
+              <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 text-left text-slate-900">
+                {selectedItems.length === 0 ? (
+                  <p className="text-base font-semibold">
+                    {employeeName}({department})未選擇任何品項
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-base font-semibold">
+                      {employeeName}({department})已選擇：
+                    </p>
+                    <p className="text-sm leading-relaxed text-slate-700">
+                      {selectedItems
+                        .map(({ item, quantity }) => `${item.name} x${quantity}`)
+                        .join("、")}
+                    </p>
+                  </div>
+                )}
+              </div>
+              <p className="text-sm text-slate-500">已過收件期限，無法再修改。</p>
+              <Link
+                href="/"
+                className="inline-flex w-full items-center justify-center rounded-2xl bg-slate-900 px-5 py-4 text-lg font-semibold text-white transition hover:bg-slate-700"
+              >
+                返回首頁
+              </Link>
+            </div>
+          ) : showConfirmation ? (
+            <div className="space-y-6 text-center">
+              <div className="flex justify-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
+                  <svg
+                    className="h-8 w-8 text-emerald-600"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              </div>
+              <h2 className="text-xl font-bold text-slate-900">送出成功！</h2>
+              <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 text-left text-slate-900">
+                {selectedItems.length === 0 ? (
+                  <p className="text-base font-semibold">
+                    {employeeName}({department})未選擇任何品項
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-base font-semibold">
+                      {employeeName}({department})已選擇：
+                    </p>
+                    <p className="text-sm leading-relaxed text-slate-700">
+                      {selectedItems
+                        .map(({ item, quantity }) => `${item.name} x${quantity}`)
+                        .join("、")}
+                    </p>
+                  </div>
+                )}
+              </div>
+              {deadline && (
+                <p className="text-sm text-slate-500">
+                  截止前（{new Date(deadline).toLocaleString("zh-TW")}）仍可修改您的選擇。
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={() => setJustSubmitted(false)}
+                className="inline-flex w-full items-center justify-center rounded-2xl bg-white px-5 py-4 text-lg font-semibold text-slate-900 ring-1 ring-inset ring-zinc-300 transition hover:bg-zinc-50"
+              >
+                修改我的選擇
+              </button>
+              <Link
+                href="/"
+                className="inline-flex w-full items-center justify-center rounded-2xl bg-slate-900 px-5 py-4 text-lg font-semibold text-white transition hover:bg-slate-700"
+              >
+                返回首頁
+              </Link>
+            </div>
           ) : (
             <form className="space-y-6" onSubmit={handleSubmit}>
               <div className="rounded-3xl border border-zinc-200 bg-zinc-50 p-5">
@@ -92,6 +253,11 @@ export default function SurveyPage() {
                   您好，<span className="font-semibold">{employeeName}</span>(
                   <span className="font-semibold">{department}</span>), 請選擇您要的月餅(可不選)
                 </p>
+                {hasPreviousSubmission && (
+                  <p className="mt-2 text-sm text-slate-500">
+                    您已送出過，以下是您先前的選擇，可修改後重新送出。
+                  </p>
+                )}
               </div>
 
               <div className="space-y-4">
@@ -134,33 +300,12 @@ export default function SurveyPage() {
                 disabled={submitting}
                 className="inline-flex w-full items-center justify-center rounded-2xl bg-slate-900 px-5 py-4 text-lg font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {submitting ? "送出中..." : "送出"}
+                {submitting ? "送出中..." : hasPreviousSubmission ? "重新送出" : "送出"}
               </button>
 
               {submitError && (
                 <div className="rounded-3xl border border-red-100 bg-red-50 p-5 text-red-700">
                   <p className="font-semibold">{submitError}</p>
-                </div>
-              )}
-
-              {submitted && (
-                <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 text-slate-900">
-                  {selectedItems.length === 0 ? (
-                    <p className="text-base font-semibold">
-                      {employeeName}({department})未選擇任何品項
-                    </p>
-                  ) : (
-                    <div className="space-y-3">
-                      <p className="text-base font-semibold">
-                        {employeeName}({department})已選擇：
-                      </p>
-                      <p className="text-sm leading-relaxed text-slate-700">
-                        {selectedItems
-                          .map(({ item, quantity }) => `${item.name} x${quantity}`)
-                          .join("、")}
-                      </p>
-                    </div>
-                  )}
                 </div>
               )}
             </form>

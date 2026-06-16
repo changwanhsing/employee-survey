@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import Link from "next/link";
+import DeadlineBanner from "./components/DeadlineBanner";
 
 type Employee = {
   employeeId: string;
@@ -17,6 +18,7 @@ type SearchResult = {
 
 export default function Home() {
   const [employeeId, setEmployeeId] = useState("");
+  const [name, setName] = useState("");
   const [result, setResult] = useState<SearchResult | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -24,8 +26,9 @@ export default function Home() {
     event.preventDefault();
     setResult(null);
     const trimmedId = employeeId.trim().toUpperCase();
-    if (!trimmedId) {
-      setResult({ found: false, error: "請輸入員工工號" });
+    const trimmedName = name.trim();
+    if (!trimmedId || !trimmedName) {
+      setResult({ found: false, error: "請輸入員工工號與姓名" });
       return;
     }
 
@@ -34,7 +37,7 @@ export default function Home() {
       const response = await fetch("/api/employee", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ employeeId: trimmedId }),
+        body: JSON.stringify({ employeeId: trimmedId, name: trimmedName }),
       });
       const data: SearchResult = await response.json();
       setResult(data);
@@ -59,6 +62,7 @@ export default function Home() {
             <p className="mt-2 text-sm text-slate-600">
               請輸入您的員工工號查詢身份。
             </p>
+            <DeadlineBanner />
           </div>
 
           <form className="space-y-5" onSubmit={handleSearch}>
@@ -71,6 +75,18 @@ export default function Home() {
               value={employeeId}
               onChange={(event) => setEmployeeId(event.target.value)}
               placeholder="例如 A001"
+              className="w-full rounded-2xl border border-zinc-300 bg-zinc-50 px-4 py-4 text-xl text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+            />
+
+            <label className="block text-base font-medium text-slate-700" htmlFor="name">
+              姓名
+            </label>
+            <input
+              id="name"
+              name="name"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="例如 吳明哲"
               className="w-full rounded-2xl border border-zinc-300 bg-zinc-50 px-4 py-4 text-xl text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
             />
 
