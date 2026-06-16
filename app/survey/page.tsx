@@ -15,6 +15,8 @@ export default function SurveyPage() {
     () => Object.fromEntries(mooncakeItems.map((item) => [item.id, 0]))
   );
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const selectedItems = useMemo(
     () =>
@@ -31,9 +33,30 @@ export default function SurveyPage() {
     });
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setSubmitted(true);
+    setSubmitError(null);
+    setSubmitting(true);
+    try {
+      const response = await fetch("/api/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId,
+          name: employeeName,
+          department,
+          quantities,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error("送出失敗");
+      }
+      setSubmitted(true);
+    } catch {
+      setSubmitError("送出失敗，請稍後再試。");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const hasEmployeeInfo = employeeId && employeeName && department;
@@ -108,10 +131,17 @@ export default function SurveyPage() {
 
               <button
                 type="submit"
-                className="inline-flex w-full items-center justify-center rounded-2xl bg-slate-900 px-5 py-4 text-lg font-semibold text-white transition hover:bg-slate-700"
+                disabled={submitting}
+                className="inline-flex w-full items-center justify-center rounded-2xl bg-slate-900 px-5 py-4 text-lg font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                送出
+                {submitting ? "送出中..." : "送出"}
               </button>
+
+              {submitError && (
+                <div className="rounded-3xl border border-red-100 bg-red-50 p-5 text-red-700">
+                  <p className="font-semibold">{submitError}</p>
+                </div>
+              )}
 
               {submitted && (
                 <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 text-slate-900">
