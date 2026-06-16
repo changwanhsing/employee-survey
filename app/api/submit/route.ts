@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
-import { mkdir, readFile, writeFile } from "fs/promises";
+import { mkdir, readFile, rename, writeFile } from "fs/promises";
 import path from "path";
 import { mooncakeItems } from "../../../src/data/mooncakeItems";
 import { isDeadlinePassed } from "../../../src/config/deadline";
 import { getEmployees } from "../../../src/data/employees";
 import { clientKey, rateLimit } from "../../../src/lib/rateLimit";
+import { Mutex } from "../../../src/lib/mutex";
 
 type Submission = {
   employeeId: string;
@@ -17,6 +18,10 @@ type Submission = {
 const dataDir = path.join(process.cwd(), "data");
 const dataFile = path.join(dataDir, "submissions.json");
 
+// Serialize the read-modify-write of submissions.json so concurrent submits
+// within this process don't overwrite each other.
+const submissionsMutex = new Mutex();
+
 async function readSubmissions(): Promise<Submission[]> {
   try {
     const raw = await readFile(dataFile, "utf-8");
@@ -28,7 +33,11 @@ async function readSubmissions(): Promise<Submission[]> {
 
 async function writeSubmissions(submissions: Submission[]) {
   await mkdir(dataDir, { recursive: true });
-  await writeFile(dataFile, JSON.stringify(submissions, null, 2), "utf-8");
+  // Write to a temp file then rename so a crash mid-write can't corrupt the
+  // file or expose a half-written JSON to concurrent readers.
+  const tempFile = `${dataFile}.${process.pid}.${Date.now()}.tmp`;
+  await writeFile(tempFile, JSON.stringify(submissions, null, 2), "utf-8");
+  await rename(tempFile, dataFile);
 }
 
 export async function POST(request: Request) {
@@ -90,17 +99,18 @@ export async function POST(request: Request) {
     submittedAt: new Date().toISOString(),
   };
 
-  const submissions = await readSubmissions();
-  const existingIndex = submissions.findIndex(
-    (item) => item.employeeId === employeeId,
-  );
-  if (existingIndex >= 0) {
-    submissions[existingIndex] = submission;
-  } else {
-    submissions.push(submission);
-  }
-
-  await writeSubmissions(submissions);
+  await submissionsMutex.runExclusive(async () => {
+    const submissions = await readSubmissions();
+    const existingIndex = submissions.findIndex(
+      (item) => item.employeeId === employeeId,
+    );
+    if (existingIndex >= 0) {
+      submissions[existingIndex] = submission;
+    } else {
+      submissions.push(submission);
+    }
+    await writeSubmissions(submissions);
+  });
 
   return NextResponse.json({ ok: true });
 }
