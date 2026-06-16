@@ -1,0 +1,144 @@
+<svg viewBox="0 0 960 860" xmlns="http://www.w3.org/2000/svg" role="img" font-family="system-ui, -apple-system, 'Noto Sans TC', sans-serif">
+  <title>員工月餅調查系統架構圖</title>
+  <desc>分層架構：使用者端、Next.js 頁面、proxy.ts Basic Auth 驗證、API 路由（公開與受保護）、檔案儲存與設定，以及共用函式庫。</desc>
+
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#64748b"/>
+    </marker>
+  </defs>
+
+  <style>
+    .lane { fill: #64748b; font-size: 13px; font-weight: 700; letter-spacing: .08em; }
+    .box-t { font-size: 14.5px; font-weight: 700; fill: #0f172a; }
+    .box-s { font-size: 11.5px; fill: #64748b; }
+    .edge { stroke: #64748b; stroke-width: 1.6; fill: none; }
+    .title { font-size: 22px; font-weight: 700; fill: #0f172a; }
+    .legend { font-size: 12px; fill: #64748b; }
+  </style>
+
+  <rect x="0" y="0" width="960" height="860" fill="#ffffff"/>
+
+  <text x="40" y="44" class="title">員工月餅調查系統 — 系統架構</text>
+
+  <!-- legend -->
+  <rect x="640" y="30" width="14" height="14" rx="3" fill="#9FE1CB" stroke="#1D9E75"/>
+  <text x="660" y="42" class="legend">員工 / 公開</text>
+  <rect x="760" y="30" width="14" height="14" rx="3" fill="#CECBF6" stroke="#7F77DD"/>
+  <text x="780" y="42" class="legend">管理者 / 受保護</text>
+
+  <!-- ============ Lane 1: Clients ============ -->
+  <text x="40" y="92" class="lane">使用者端</text>
+  <g>
+    <rect x="150" y="78" width="190" height="56" rx="12" fill="#E1F5EE" stroke="#1D9E75"/>
+    <text x="245" y="102" text-anchor="middle" class="box-t">員工（手機 / 瀏覽器）</text>
+    <text x="245" y="120" text-anchor="middle" class="box-s">查詢身份、選月餅、送出</text>
+
+    <rect x="620" y="78" width="190" height="56" rx="12" fill="#EEEDFE" stroke="#7F77DD"/>
+    <text x="715" y="102" text-anchor="middle" class="box-t">管理者</text>
+    <text x="715" y="120" text-anchor="middle" class="box-s">查看統計、匯出名單</text>
+  </g>
+
+  <!-- ============ Lane 2: Pages ============ -->
+  <text x="40" y="188" class="lane">前端頁面</text>
+  <text x="40" y="204" class="lane" font-weight="400" font-size="10">Next.js App Router</text>
+  <g>
+    <rect x="60" y="174" width="170" height="58" rx="12" fill="#E1F5EE" stroke="#1D9E75"/>
+    <text x="145" y="198" text-anchor="middle" class="box-t">/ 首頁</text>
+    <text x="145" y="216" text-anchor="middle" class="box-s">工號＋姓名查詢、倒數</text>
+
+    <rect x="250" y="174" width="170" height="58" rx="12" fill="#E1F5EE" stroke="#1D9E75"/>
+    <text x="335" y="198" text-anchor="middle" class="box-t">/survey 選品</text>
+    <text x="335" y="216" text-anchor="middle" class="box-s">加減數量、截止前可重選</text>
+
+    <rect x="620" y="174" width="190" height="58" rx="12" fill="#EEEDFE" stroke="#7F77DD"/>
+    <text x="715" y="198" text-anchor="middle" class="box-t">/admin 管理後台</text>
+    <text x="715" y="216" text-anchor="middle" class="box-s">統計／未送名單／搜尋</text>
+  </g>
+
+  <!-- ============ Lane 3: Auth ============ -->
+  <text x="40" y="290" class="lane">驗證閘道</text>
+  <rect x="500" y="272" width="380" height="48" rx="12" fill="#F2F0FF" stroke="#7F77DD" stroke-dasharray="6 4"/>
+  <text x="690" y="293" text-anchor="middle" class="box-t">proxy.ts — Basic Auth</text>
+  <text x="690" y="310" text-anchor="middle" class="box-s">保護 /admin 與受保護 API（ADMIN_USER / PASSWORD）</text>
+
+  <!-- ============ Lane 4: API ============ -->
+  <text x="40" y="372" class="lane">API 路由</text>
+
+  <!-- public APIs -->
+  <rect x="50" y="392" width="400" height="150" rx="14" fill="none" stroke="#1D9E75" stroke-width="1.2" stroke-dasharray="4 4"/>
+  <text x="66" y="410" class="box-s" fill="#0F6E56" font-weight="700">公開 API</text>
+  <g>
+    <rect x="66" y="420" width="180" height="50" rx="10" fill="#E1F5EE" stroke="#1D9E75"/>
+    <text x="156" y="441" text-anchor="middle" class="box-t" font-size="13">POST /api/employee</text>
+    <text x="156" y="457" text-anchor="middle" class="box-s">查詢驗證 · 限流</text>
+
+    <rect x="256" y="420" width="180" height="50" rx="10" fill="#E1F5EE" stroke="#1D9E75"/>
+    <text x="346" y="441" text-anchor="middle" class="box-t" font-size="13">GET /api/deadline</text>
+    <text x="346" y="457" text-anchor="middle" class="box-s">截止狀態</text>
+
+    <rect x="66" y="478" width="180" height="50" rx="10" fill="#E1F5EE" stroke="#1D9E75"/>
+    <text x="156" y="499" text-anchor="middle" class="box-t" font-size="13">POST /api/submit</text>
+    <text x="156" y="515" text-anchor="middle" class="box-s">驗證·限流·mutex·截止</text>
+
+    <rect x="256" y="478" width="180" height="50" rx="10" fill="#E1F5EE" stroke="#1D9E75"/>
+    <text x="346" y="499" text-anchor="middle" class="box-t" font-size="12.5">GET /api/submit/check</text>
+    <text x="346" y="515" text-anchor="middle" class="box-s">是否已送出</text>
+  </g>
+
+  <!-- protected APIs -->
+  <rect x="500" y="392" width="400" height="150" rx="14" fill="none" stroke="#7F77DD" stroke-width="1.2" stroke-dasharray="4 4"/>
+  <text x="516" y="410" class="box-s" fill="#534AB7" font-weight="700">受保護 API（經 proxy.ts）</text>
+  <g>
+    <rect x="516" y="420" width="180" height="50" rx="10" fill="#EEEDFE" stroke="#7F77DD"/>
+    <text x="606" y="441" text-anchor="middle" class="box-t" font-size="12.5">GET /api/submit</text>
+    <text x="606" y="457" text-anchor="middle" class="box-s">全部紀錄</text>
+
+    <rect x="706" y="420" width="180" height="50" rx="10" fill="#EEEDFE" stroke="#7F77DD"/>
+    <text x="796" y="441" text-anchor="middle" class="box-t" font-size="12.5">GET /api/employees</text>
+    <text x="796" y="457" text-anchor="middle" class="box-s">員工名冊</text>
+
+    <rect x="610" y="478" width="186" height="50" rx="10" fill="#EEEDFE" stroke="#7F77DD"/>
+    <text x="703" y="499" text-anchor="middle" class="box-t" font-size="12">GET /api/submit/export</text>
+    <text x="703" y="515" text-anchor="middle" class="box-s">CSV 匯出（含 BOM）</text>
+  </g>
+
+  <!-- ============ Lane 5: Storage ============ -->
+  <text x="40" y="600" class="lane">儲存與設定</text>
+  <g>
+    <rect x="80" y="612" width="190" height="56" rx="12" fill="#ffffff" stroke="#cbd5e1"/>
+    <text x="175" y="636" text-anchor="middle" class="box-t">data/employees.csv</text>
+    <text x="175" y="654" text-anchor="middle" class="box-s">員工名冊（工號·姓名·部門）</text>
+
+    <rect x="300" y="612" width="200" height="56" rx="12" fill="#ffffff" stroke="#cbd5e1"/>
+    <text x="400" y="636" text-anchor="middle" class="box-t">data/submissions.json</text>
+    <text x="400" y="654" text-anchor="middle" class="box-s">送出紀錄（mutex·原子寫檔）</text>
+
+    <rect x="530" y="612" width="190" height="56" rx="12" fill="#ffffff" stroke="#cbd5e1"/>
+    <text x="625" y="636" text-anchor="middle" class="box-t">環境變數</text>
+    <text x="625" y="654" text-anchor="middle" class="box-s">SUBMIT_DEADLINE · ADMIN_*</text>
+  </g>
+
+  <!-- cross-cutting libs -->
+  <rect x="750" y="600" width="170" height="80" rx="12" fill="#FAF7FF" stroke="#AFA9EC" stroke-dasharray="5 4"/>
+  <text x="835" y="620" text-anchor="middle" class="box-s" fill="#534AB7" font-weight="700">共用函式庫</text>
+  <text x="835" y="640" text-anchor="middle" class="box-s">rateLimit（IP 限流）</text>
+  <text x="835" y="657" text-anchor="middle" class="box-s">mutex（序列化寫入）</text>
+  <text x="835" y="674" text-anchor="middle" class="box-s">deadline（截止判斷）</text>
+
+  <!-- ====== Edges ====== -->
+  <path class="edge" d="M200 134 L160 174" marker-end="url(#arrow)"/>
+  <path class="edge" d="M280 134 L330 174" marker-end="url(#arrow)"/>
+  <path class="edge" d="M715 134 L715 174" marker-end="url(#arrow)"/>
+
+  <path class="edge" d="M715 232 L700 272" marker-end="url(#arrow)"/>
+  <path class="edge" d="M690 320 L700 392" marker-end="url(#arrow)"/>
+
+  <path class="edge" d="M145 232 L156 420" marker-end="url(#arrow)"/>
+  <path class="edge" d="M335 232 L346 420" marker-end="url(#arrow)"/>
+
+  <path class="edge" d="M156 528 L175 612" marker-end="url(#arrow)"/>
+  <path class="edge" d="M250 503 L380 612" marker-end="url(#arrow)"/>
+  <path class="edge" d="M606 470 Q470 560 410 612" marker-end="url(#arrow)"/>
+  <path class="edge" d="M796 470 Q300 560 230 612" marker-end="url(#arrow)" opacity="0.5"/>
+</svg>
