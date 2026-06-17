@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { ChangeEvent, useCallback, useEffect, useState } from "react";
 import { mooncakeItems } from "@/src/data/mooncakeItems";
 
 type Submission = {
@@ -21,14 +21,24 @@ function itemName(itemId: string) {
   return mooncakeItems.find((item) => item.id === itemId)?.name ?? itemId;
 }
 
+type ImportResponse = {
+  ok: boolean;
+  imported?: number;
+  warnings?: string[];
+  error?: string;
+  details?: string[];
+};
+
 export default function AdminPage() {
   const [submissions, setSubmissions] = useState<Submission[] | null>(null);
   const [employees, setEmployees] = useState<Employee[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<ImportResponse | null>(null);
 
-  useEffect(() => {
-    Promise.all([
+  const loadData = useCallback(() => {
+    return Promise.all([
       fetch("/api/submit").then((response) => {
         if (!response.ok) throw new Error("讀取失敗");
         return response.json();
@@ -49,6 +59,36 @@ export default function AdminPage() {
       )
       .catch(() => setError("讀取資料失敗，請稍後再試。"));
   }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  async function handleImport(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = ""; // 允許重覆選同一檔
+    if (!file) return;
+
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await fetch("/api/employees/import", {
+        method: "POST",
+        body: formData,
+      });
+      const data: ImportResponse = await response.json();
+      setImportResult(data);
+      if (data.ok) {
+        await loadData();
+      }
+    } catch {
+      setImportResult({ ok: false, error: "上傳失敗，請稍後再試。" });
+    } finally {
+      setImporting(false);
+    }
+  }
 
   const totals = mooncakeItems.map((item) => ({
     item,
@@ -122,13 +162,52 @@ export default function AdminPage() {
           <h1 className="mt-3 text-3xl font-bold leading-tight text-slate-900">
             送出紀錄管理
           </h1>
-          <a
-            href="/api/submit/export"
-            className="mt-4 inline-flex rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-700"
-          >
-            匯出 CSV
-          </a>
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
+            <a
+              href="/api/submit/export"
+              className="inline-flex rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-700"
+            >
+              匯出 CSV
+            </a>
+            <label className="inline-flex cursor-pointer rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
+              {importing ? "匯入中..." : "匯入員工 Excel"}
+              <input
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                className="hidden"
+                disabled={importing}
+                onChange={handleImport}
+              />
+            </label>
+          </div>
         </div>
+
+        {importResult && (
+          <div
+            className={`mb-6 rounded-3xl border p-5 ${
+              importResult.ok
+                ? "border-emerald-100 bg-emerald-50 text-emerald-800"
+                : "border-red-100 bg-red-50 text-red-700"
+            }`}
+          >
+            {importResult.ok ? (
+              <p className="font-semibold">
+                已匯入 {importResult.imported} 筆員工資料，員工名冊已更新。
+              </p>
+            ) : (
+              <p className="font-semibold">{importResult.error ?? "匯入失敗。"}</p>
+            )}
+            {(importResult.warnings?.length || importResult.details?.length) ? (
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
+                {[...(importResult.warnings ?? []), ...(importResult.details ?? [])].map(
+                  (msg, index) => (
+                    <li key={index}>{msg}</li>
+                  )
+                )}
+              </ul>
+            ) : null}
+          </div>
+        )}
 
         {error && (
           <div className="mb-6 rounded-3xl border border-red-100 bg-red-50 p-5 text-red-700">

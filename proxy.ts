@@ -33,5 +33,11 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin", "/api/submit", "/api/submit/export", "/api/employees"],
+  matcher: [
+    "/admin",
+    "/api/submit",
+    "/api/submit/export",
+    "/api/employees",
+    "/api/employees/import",
+  ],
 };
