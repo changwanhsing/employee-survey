@@ -1,21 +1,7 @@
 import { NextResponse } from "next/server";
-import { mkdir, rename, writeFile } from "fs/promises";
-import path from "path";
 import * as XLSX from "xlsx";
-import {
-  employeesToCsv,
-  mapRowsToEmployees,
-} from "../../../../src/lib/employeeImport";
-
-const dataDir = path.join(process.cwd(), "data");
-const csvFile = path.join(dataDir, "employees.csv");
-
-async function writeCsv(content: string) {
-  await mkdir(dataDir, { recursive: true });
-  const tempFile = `${csvFile}.${process.pid}.${Date.now()}.tmp`;
-  await writeFile(tempFile, content, "utf-8");
-  await rename(tempFile, csvFile);
-}
+import { mapRowsToEmployees } from "../../../../src/lib/employeeImport";
+import { supabase } from "../../../../src/lib/supabase";
 
 export async function POST(request: Request) {
   let formData: FormData;
@@ -58,7 +44,23 @@ export async function POST(request: Request) {
     );
   }
 
-  await writeCsv(employeesToCsv(result.employees));
+  const upsertRows = result.employees.map((emp) => ({
+    employee_id: emp.employeeId,
+    name: emp.name,
+    department: emp.department,
+    email: emp.email ?? null,
+  }));
+
+  const { error } = await supabase
+    .from("employees")
+    .upsert(upsertRows, { onConflict: "employee_id" });
+
+  if (error) {
+    return NextResponse.json(
+      { ok: false, error: "資料庫寫入失敗：" + error.message },
+      { status: 500 },
+    );
+  }
 
   return NextResponse.json({
     ok: true,

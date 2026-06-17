@@ -1,25 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readFile } from "fs/promises";
-import path from "path";
-
-type Submission = {
-  employeeId: string;
-  name: string;
-  department: string;
-  items: { itemId: string; quantity: number }[];
-  submittedAt: string;
-};
-
-const dataFile = path.join(process.cwd(), "data", "submissions.json");
-
-async function readSubmissions(): Promise<Submission[]> {
-  try {
-    const raw = await readFile(dataFile, "utf-8");
-    return JSON.parse(raw) as Submission[];
-  } catch {
-    return [];
-  }
-}
+import { supabase } from "../../../../src/lib/supabase";
 
 export async function GET(request: NextRequest) {
   const employeeId = (request.nextUrl.searchParams.get("employeeId") || "")
@@ -30,16 +10,19 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ submitted: false });
   }
 
-  const submissions = await readSubmissions();
-  const existing = submissions.find((item) => item.employeeId === employeeId);
+  const { data, error } = await supabase
+    .from("submissions")
+    .select("items, submitted_at")
+    .eq("employee_id", employeeId)
+    .maybeSingle();
 
-  if (!existing) {
+  if (error || !data) {
     return NextResponse.json({ submitted: false });
   }
 
   return NextResponse.json({
     submitted: true,
-    items: existing.items,
-    submittedAt: existing.submittedAt,
+    items: data.items,
+    submittedAt: data.submitted_at,
   });
 }

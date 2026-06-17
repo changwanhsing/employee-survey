@@ -1,25 +1,5 @@
-import { readFile } from "fs/promises";
-import path from "path";
 import { mooncakeItems } from "../../../../src/data/mooncakeItems";
-
-type Submission = {
-  employeeId: string;
-  name: string;
-  department: string;
-  items: { itemId: string; quantity: number }[];
-  submittedAt: string;
-};
-
-const dataFile = path.join(process.cwd(), "data", "submissions.json");
-
-async function readSubmissions(): Promise<Submission[]> {
-  try {
-    const raw = await readFile(dataFile, "utf-8");
-    return JSON.parse(raw) as Submission[];
-  } catch {
-    return [];
-  }
-}
+import { supabase } from "../../../../src/lib/supabase";
 
 function csvEscape(value: string) {
   if (/[",\n]/.test(value)) {
@@ -29,25 +9,26 @@ function csvEscape(value: string) {
 }
 
 export async function GET() {
-  const submissions = await readSubmissions();
+  const { data, error } = await supabase
+    .from("submissions")
+    .select("employee_id, name, department, items, submitted_at");
+
+  if (error) {
+    return new Response("無法取得資料", { status: 500 });
+  }
+
   const itemNameById = new Map(mooncakeItems.map((item) => [item.id, item.name]));
 
   const header = ["工號", "姓名", "部門", "選擇品項", "送出時間"];
-  const rows = submissions.map((submission) => {
-    const items = submission.items
+  const rows = (data ?? []).map((row) => {
+    const items = (row.items as { itemId: string; quantity: number }[])
       .map((entry) => `${itemNameById.get(entry.itemId) ?? entry.itemId} x${entry.quantity}`)
       .join("、");
-    return [
-      submission.employeeId,
-      submission.name,
-      submission.department,
-      items,
-      submission.submittedAt,
-    ];
+    return [row.employee_id, row.name, row.department, items, row.submitted_at];
   });
 
   const csv = [header, ...rows]
-    .map((row) => row.map((cell) => csvEscape(cell)).join(","))
+    .map((row) => row.map((cell) => csvEscape(String(cell))).join(","))
     .join("\n");
 
   return new Response("﻿" + csv, {

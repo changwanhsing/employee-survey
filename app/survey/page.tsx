@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { mooncakeItems } from "@/src/data/mooncakeItems";
 import Link from "next/link";
@@ -8,6 +8,14 @@ import Link from "next/link";
 type LockedItem = { itemId: string; quantity: number };
 
 export default function SurveyPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-zinc-50 flex items-center justify-center text-slate-600">載入中...</div>}>
+      <SurveyContent />
+    </Suspense>
+  );
+}
+
+function SurveyContent() {
   const searchParams = useSearchParams();
   const employeeId = searchParams.get("employeeId") ?? "";
   const employeeName = searchParams.get("name") ?? "";

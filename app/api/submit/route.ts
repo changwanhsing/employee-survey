@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
-import { mkdir, readFile, rename, writeFile } from "fs/promises";
-import path from "path";
 import { mooncakeItems } from "../../../src/data/mooncakeItems";
 import { isDeadlinePassed } from "../../../src/config/deadline";
 import { getEmployees } from "../../../src/data/employees";
 import { clientKey, rateLimit } from "../../../src/lib/rateLimit";
-import { Mutex } from "../../../src/lib/mutex";
 import { sendMail } from "../../../src/lib/mailer";
+import { supabase } from "../../../src/lib/supabase";
 
 function renderConfirmationEmail(
   name: string,
@@ -32,39 +30,6 @@ function renderConfirmationEmail(
       <p style="color:#64748b; font-size:13px;">如需修改，請於收件截止前重新登入調整。此信為系統自動發送，請勿直接回覆。</p>
     </div>
   `;
-}
-
-type Submission = {
-  employeeId: string;
-  name: string;
-  department: string;
-  items: { itemId: string; quantity: number }[];
-  submittedAt: string;
-};
-
-const dataDir = path.join(process.cwd(), "data");
-const dataFile = path.join(dataDir, "submissions.json");
-
-// Serialize the read-modify-write of submissions.json so concurrent submits
-// within this process don't overwrite each other.
-const submissionsMutex = new Mutex();
-
-async function readSubmissions(): Promise<Submission[]> {
-  try {
-    const raw = await readFile(dataFile, "utf-8");
-    return JSON.parse(raw) as Submission[];
-  } catch {
-    return [];
-  }
-}
-
-async function writeSubmissions(submissions: Submission[]) {
-  await mkdir(dataDir, { recursive: true });
-  // Write to a temp file then rename so a crash mid-write can't corrupt the
-  // file or expose a half-written JSON to concurrent readers.
-  const tempFile = `${dataFile}.${process.pid}.${Date.now()}.tmp`;
-  await writeFile(tempFile, JSON.stringify(submissions, null, 2), "utf-8");
-  await rename(tempFile, dataFile);
 }
 
 export async function POST(request: Request) {
@@ -95,7 +60,6 @@ export async function POST(request: Request) {
     );
   }
 
-  // 以伺服器端的員工名冊為準，避免前端竄改身份或部門
   const employees = await getEmployees();
   const employee = employees.find(
     (item) => item.employeeId.toUpperCase() === employeeId && item.name === name,
@@ -118,28 +82,24 @@ export async function POST(request: Request) {
       quantity: Math.min(5, Math.max(0, Math.trunc(quantity))),
     }));
 
-  const submission: Submission = {
-    employeeId,
-    name,
-    department,
-    items,
-    submittedAt: new Date().toISOString(),
-  };
+  const { error } = await supabase.from("submissions").upsert(
+    {
+      employee_id: employeeId,
+      name,
+      department,
+      items,
+      submitted_at: new Date().toISOString(),
+    },
+    { onConflict: "employee_id" },
+  );
 
-  await submissionsMutex.runExclusive(async () => {
-    const submissions = await readSubmissions();
-    const existingIndex = submissions.findIndex(
-      (item) => item.employeeId === employeeId,
+  if (error) {
+    return NextResponse.json(
+      { ok: false, error: "資料儲存失敗，請稍後再試。" },
+      { status: 500 },
     );
-    if (existingIndex >= 0) {
-      submissions[existingIndex] = submission;
-    } else {
-      submissions.push(submission);
-    }
-    await writeSubmissions(submissions);
-  });
+  }
 
-  // 寄送確認信（有 email 才寄）。寄信失敗不影響送出結果。
   if (employee.email) {
     await sendMail({
       to: employee.email,
@@ -152,6 +112,21 @@ export async function POST(request: Request) {
 }
 
 export async function GET() {
-  const submissions = await readSubmissions();
+  const { data, error } = await supabase
+    .from("submissions")
+    .select("employee_id, name, department, items, submitted_at");
+
+  if (error) {
+    return NextResponse.json({ submissions: [] });
+  }
+
+  const submissions = (data ?? []).map((row) => ({
+    employeeId: row.employee_id,
+    name: row.name,
+    department: row.department,
+    items: row.items,
+    submittedAt: row.submitted_at,
+  }));
+
   return NextResponse.json({ submissions });
 }
