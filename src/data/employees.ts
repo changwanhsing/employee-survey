@@ -5,6 +5,7 @@ export type Employee = {
   employeeId: string;
   name: string;
   department: string;
+  email?: string;
 };
 
 const csvFile = path.join(process.cwd(), "data", "employees.csv");
@@ -16,11 +17,12 @@ function parseCsv(raw: string): Employee[] {
     .filter((line) => line.length > 0)
     .slice(1) // skip header
     .map((line) => {
-      const [employeeId, name, department] = line.split(",");
+      const [employeeId, name, department, email] = line.split(",");
       return {
         employeeId: (employeeId ?? "").trim(),
         name: (name ?? "").trim(),
         department: (department ?? "").trim(),
+        email: (email ?? "").trim() || undefined,
       };
     })
     .filter((employee) => employee.employeeId);

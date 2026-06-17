@@ -6,6 +6,33 @@ import { isDeadlinePassed } from "../../../src/config/deadline";
 import { getEmployees } from "../../../src/data/employees";
 import { clientKey, rateLimit } from "../../../src/lib/rateLimit";
 import { Mutex } from "../../../src/lib/mutex";
+import { sendMail } from "../../../src/lib/mailer";
+
+function renderConfirmationEmail(
+  name: string,
+  department: string,
+  items: { itemId: string; quantity: number }[],
+): string {
+  const itemNameById = new Map(mooncakeItems.map((item) => [item.id, item.name]));
+  const listHtml =
+    items.length === 0
+      ? "<p>您本次未選擇任何品項。</p>"
+      : `<ul>${items
+          .map(
+            (entry) =>
+              `<li>${itemNameById.get(entry.itemId) ?? entry.itemId} × ${entry.quantity}</li>`,
+          )
+          .join("")}</ul>`;
+
+  return `
+    <div style="font-family: sans-serif; line-height: 1.6; color: #0f172a;">
+      <h2>中秋月餅調查 — 送出確認</h2>
+      <p>${name}（${department}）您好，我們已收到您的選擇：</p>
+      ${listHtml}
+      <p style="color:#64748b; font-size:13px;">如需修改，請於收件截止前重新登入調整。此信為系統自動發送，請勿直接回覆。</p>
+    </div>
+  `;
+}
 
 type Submission = {
   employeeId: string;
@@ -111,6 +138,15 @@ export async function POST(request: Request) {
     }
     await writeSubmissions(submissions);
   });
+
+  // 寄送確認信（有 email 才寄）。寄信失敗不影響送出結果。
+  if (employee.email) {
+    await sendMail({
+      to: employee.email,
+      subject: "中秋月餅調查 — 送出確認",
+      html: renderConfirmationEmail(employee.name, department, items),
+    });
+  }
 
   return NextResponse.json({ ok: true });
 }
