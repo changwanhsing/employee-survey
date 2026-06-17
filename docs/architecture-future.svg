@@ -1,0 +1,87 @@
+<svg viewBox="0 0 960 700" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, -apple-system, 'Noto Sans TC', sans-serif">
+  <title>未來規劃：多實例部署架構</title>
+  <desc>規劃版架構：多個應用實例置於負載平衡之後，共用資料庫、共享速率限制與分散式鎖，取代目前的單機檔案與進程內機制。</desc>
+
+  <defs>
+    <marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#64748b"/>
+    </marker>
+  </defs>
+  <style>
+    .lane2 { fill: #64748b; font-size: 13px; font-weight: 700; letter-spacing:.06em; }
+    .bt { font-size: 14px; font-weight: 700; fill: #0f172a; }
+    .bs { font-size: 11px; fill: #64748b; }
+    .e2 { stroke: #64748b; stroke-width:1.6; fill:none; }
+    .ttl { font-size: 22px; font-weight:700; fill: #0f172a; }
+    .tag { font-size: 10.5px; font-weight:700; }
+  </style>
+
+  <rect x="0" y="0" width="960" height="700" fill="#ffffff"/>
+
+  <text x="40" y="42" class="ttl">未來規劃 — 多實例部署架構</text>
+  <text x="40" y="64" class="bs" font-size="12.5">目標：水平擴展時不再依賴單機檔案與進程內狀態</text>
+
+  <!-- clients -->
+  <rect x="370" y="86" width="220" height="50" rx="12" fill="#E1F5EE" stroke="#1D9E75"/>
+  <text x="480" y="108" text-anchor="middle" class="bt">員工 / 管理者</text>
+  <text x="480" y="124" text-anchor="middle" class="bs">瀏覽器 / 手機</text>
+
+  <!-- load balancer -->
+  <rect x="350" y="166" width="260" height="50" rx="12" fill="#EEEDFE" stroke="#7F77DD"/>
+  <text x="480" y="188" text-anchor="middle" class="bt">負載平衡 / Edge</text>
+  <text x="480" y="204" text-anchor="middle" class="bs">Vercel · CDN · Reverse Proxy</text>
+
+  <!-- app instances -->
+  <text x="40" y="262" class="lane2">應用實例（可水平擴展）</text>
+  <g>
+    <rect x="120" y="276" width="200" height="64" rx="12" fill="#FAF7FF" stroke="#AFA9EC"/>
+    <text x="220" y="302" text-anchor="middle" class="bt">Next.js 實例 A</text>
+    <text x="220" y="320" text-anchor="middle" class="bs">proxy.ts · API routes</text>
+
+    <rect x="380" y="276" width="200" height="64" rx="12" fill="#FAF7FF" stroke="#AFA9EC"/>
+    <text x="480" y="302" text-anchor="middle" class="bt">Next.js 實例 B</text>
+    <text x="480" y="320" text-anchor="middle" class="bs">proxy.ts · API routes</text>
+
+    <rect x="640" y="276" width="200" height="64" rx="12" fill="#FAF7FF" stroke="#AFA9EC"/>
+    <text x="740" y="302" text-anchor="middle" class="bt">Next.js 實例 N…</text>
+    <text x="740" y="320" text-anchor="middle" class="bs">無狀態 stateless</text>
+  </g>
+
+  <!-- shared services -->
+  <text x="40" y="404" class="lane2">共享服務（取代進程內狀態）</text>
+  <g>
+    <rect x="90" y="420" width="230" height="92" rx="12" fill="#FBEAF0" stroke="#D4537E"/>
+    <text x="205" y="446" text-anchor="middle" class="bt">資料庫</text>
+    <text x="205" y="466" text-anchor="middle" class="bs">Postgres / SQLite / Turso</text>
+    <text x="205" y="484" text-anchor="middle" class="bs">submissions · employees</text>
+    <text x="205" y="502" text-anchor="middle" class="tag" fill="#993556">取代 *.json / *.csv</text>
+
+    <rect x="365" y="420" width="230" height="92" rx="12" fill="#FBEAF0" stroke="#D4537E"/>
+    <text x="480" y="446" text-anchor="middle" class="bt">Redis / Upstash</text>
+    <text x="480" y="466" text-anchor="middle" class="bs">共享速率限制計數</text>
+    <text x="480" y="484" text-anchor="middle" class="bs">分散式鎖（取代 mutex）</text>
+    <text x="480" y="502" text-anchor="middle" class="tag" fill="#993556">跨實例一致</text>
+
+    <rect x="640" y="420" width="230" height="92" rx="12" fill="#EEEDFE" stroke="#7F77DD"/>
+    <text x="755" y="446" text-anchor="middle" class="bt">設定 / 密鑰</text>
+    <text x="755" y="466" text-anchor="middle" class="bs">環境變數 · Secrets</text>
+    <text x="755" y="484" text-anchor="middle" class="bs">SUBMIT_DEADLINE</text>
+    <text x="755" y="502" text-anchor="middle" class="bs">ADMIN_* 帳密</text>
+  </g>
+
+  <!-- transactional note -->
+  <rect x="90" y="540" width="505" height="40" rx="10" fill="#E1F5EE" stroke="#1D9E75" stroke-dasharray="5 4"/>
+  <text x="342" y="565" text-anchor="middle" class="bs" fill="#0F6E56">送出改用資料庫交易（唯一鍵 upsert）→ 競態與重複送出由 DB 保證，免應用層 mutex</text>
+
+  <!-- edges -->
+  <path class="e2" d="M480 136 L480 166" marker-end="url(#arr2)"/>
+  <path class="e2" d="M430 216 L240 276" marker-end="url(#arr2)"/>
+  <path class="e2" d="M480 216 L480 276" marker-end="url(#arr2)"/>
+  <path class="e2" d="M530 216 L720 276" marker-end="url(#arr2)"/>
+
+  <path class="e2" d="M220 340 L205 420" marker-end="url(#arr2)"/>
+  <path class="e2" d="M470 340 L480 420" marker-end="url(#arr2)"/>
+  <path class="e2" d="M740 340 L755 420" marker-end="url(#arr2)"/>
+  <path class="e2" d="M300 330 Q360 380 430 420" marker-end="url(#arr2)" opacity="0.5"/>
+  <path class="e2" d="M660 330 Q560 380 520 420" marker-end="url(#arr2)" opacity="0.5"/>
+</svg>
