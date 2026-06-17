@@ -1,50 +1,111 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import DeadlineBanner from "./components/DeadlineBanner";
 
-type Employee = {
-  employeeId: string;
-  name: string;
-  department: string;
-};
-
-type SearchResult = {
-  found: boolean;
-  employee?: Employee;
-  error?: string;
-};
+type Step =
+  | { type: "lookup" }
+  | { type: "otp"; employeeId: string; maskedEmail: string };
 
 export default function Home() {
-  const [employeeId, setEmployeeId] = useState("");
-  const [name, setName] = useState("");
-  const [result, setResult] = useState<SearchResult | null>(null);
-  const [loading, setLoading] = useState(false);
+  const router = useRouter();
+  const [step, setStep] = useState<Step>({ type: "lookup" });
 
-  async function handleSearch(event: FormEvent<HTMLFormElement>) {
+  const [employeeId, setEmployeeId] = useState("");
+  const [lookupError, setLookupError] = useState<string | null>(null);
+  const [lookupLoading, setLookupLoading] = useState(false);
+
+  const [otp, setOtp] = useState("");
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  async function handleLookup(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setResult(null);
+    setLookupError(null);
     const trimmedId = employeeId.trim().toUpperCase();
-    const trimmedName = name.trim();
-    if (!trimmedId || !trimmedName) {
-      setResult({ found: false, error: "請輸入員工工號與姓名" });
+    if (!trimmedId) {
+      setLookupError("請輸入員工工號");
       return;
     }
-
-    setLoading(true);
+    setLookupLoading(true);
     try {
-      const response = await fetch("/api/employee", {
+      const res = await fetch("/api/otp/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ employeeId: trimmedId, name: trimmedName }),
+        body: JSON.stringify({ employeeId: trimmedId }),
       });
-      const data: SearchResult = await response.json();
-      setResult(data);
-    } catch (error) {
-      setResult({ found: false, error: "伺服器發生錯誤，請稍後再試" });
+      const data = await res.json();
+      if (!data.ok) {
+        setLookupError(data.error || "查詢失敗，請稍後再試");
+        return;
+      }
+      setStep({ type: "otp", employeeId: trimmedId, maskedEmail: data.maskedEmail });
+      startResendCooldown();
+    } catch {
+      setLookupError("伺服器發生錯誤，請稍後再試");
     } finally {
-      setLoading(false);
+      setLookupLoading(false);
+    }
+  }
+
+  function startResendCooldown() {
+    setResendCooldown(60);
+    const interval = setInterval(() => {
+      setResendCooldown((prev) => {
+        if (prev <= 1) { clearInterval(interval); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+  }
+
+  async function handleResend() {
+    if (step.type !== "otp") return;
+    setOtpError(null);
+    try {
+      const res = await fetch("/api/otp/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ employeeId: step.employeeId }),
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        setOtpError(data.error || "重新發送失敗");
+        return;
+      }
+      startResendCooldown();
+    } catch {
+      setOtpError("伺服器發生錯誤，請稍後再試");
+    }
+  }
+
+  async function handleVerify(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (step.type !== "otp") return;
+    setOtpError(null);
+    const trimmedCode = otp.trim();
+    if (!trimmedCode) {
+      setOtpError("請輸入驗證碼");
+      return;
+    }
+    setOtpLoading(true);
+    try {
+      const res = await fetch("/api/otp/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ employeeId: step.employeeId, code: trimmedCode }),
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        setOtpError(data.error || "驗證失敗");
+        return;
+      }
+      router.push("/survey");
+    } catch {
+      setOtpError("伺服器發生錯誤，請稍後再試");
+    } finally {
+      setOtpLoading(false);
     }
   }
 
@@ -60,69 +121,85 @@ export default function Home() {
               中秋月餅調查
             </h1>
             <p className="mt-2 text-sm text-slate-600">
-              請輸入您的員工工號查詢身份。
+              {step.type === "lookup" ? "請輸入您的員工工號以接收驗證碼。" : "請輸入寄送至您信箱的驗證碼。"}
             </p>
             <DeadlineBanner />
           </div>
 
-          <form className="space-y-5" onSubmit={handleSearch}>
-            <label className="block text-base font-medium text-slate-700" htmlFor="employeeId">
-              員工工號
-            </label>
-            <input
-              id="employeeId"
-              name="employeeId"
-              value={employeeId}
-              onChange={(event) => setEmployeeId(event.target.value)}
-              placeholder="例如 A001"
-              className="w-full rounded-2xl border border-zinc-300 bg-zinc-50 px-4 py-4 text-xl text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
-            />
-
-            <label className="block text-base font-medium text-slate-700" htmlFor="name">
-              姓名
-            </label>
-            <input
-              id="name"
-              name="name"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              placeholder="例如 吳明哲"
-              className="w-full rounded-2xl border border-zinc-300 bg-zinc-50 px-4 py-4 text-xl text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
-            />
-
-            <button
-              type="submit"
-              className="inline-flex w-full items-center justify-center rounded-2xl bg-slate-900 px-5 py-4 text-lg font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={loading}
-            >
-              {loading ? "查詢中..." : "查詢"}
-            </button>
-          </form>
-
-          {result && (
-            <div className="mt-6 rounded-2xl border p-4 text-center" role="status">
-              {result.found && result.employee ? (
-                <div className="space-y-4">
-                  <p className="text-lg font-semibold text-slate-900">
-                    歡迎，{result.employee.name} ({result.employee.department})
-                  </p>
-                  <Link
-                    href={`/survey?employeeId=${encodeURIComponent(
-                      result.employee.employeeId
-                    )}&name=${encodeURIComponent(result.employee.name)}&department=${encodeURIComponent(
-                      result.employee.department
-                    )}`}
-                    className="mx-auto mt-2 inline-flex rounded-2xl bg-slate-900 px-6 py-3 text-base font-semibold text-white transition hover:bg-slate-700"
-                  >
-                    下一步
-                  </Link>
-                </div>
-              ) : (
-                <p className="text-base font-medium text-red-600">
-                  {result.error || "找不到此工號,請確認後重新輸入"}
-                </p>
+          {step.type === "lookup" ? (
+            <form className="space-y-5" onSubmit={handleLookup}>
+              <div>
+                <label className="block text-base font-medium text-slate-700 mb-2" htmlFor="employeeId">
+                  員工工號
+                </label>
+                <input
+                  id="employeeId"
+                  value={employeeId}
+                  onChange={(e) => setEmployeeId(e.target.value)}
+                  placeholder="例如 A001"
+                  className="w-full rounded-2xl border border-zinc-300 bg-zinc-50 px-4 py-4 text-xl text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={lookupLoading}
+                className="inline-flex w-full items-center justify-center rounded-2xl bg-slate-900 px-5 py-4 text-lg font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {lookupLoading ? "發送中..." : "發送驗證碼"}
+              </button>
+              {lookupError && (
+                <p className="text-center text-base font-medium text-red-600">{lookupError}</p>
               )}
-            </div>
+            </form>
+          ) : (
+            <form className="space-y-5" onSubmit={handleVerify}>
+              <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-center text-sm text-blue-800">
+                驗證碼已發送至 <span className="font-semibold">{step.maskedEmail}</span>
+                <br />
+                <span className="text-xs text-blue-600">驗證碼有效時間 10 分鐘</span>
+              </div>
+              <div>
+                <label className="block text-base font-medium text-slate-700 mb-2" htmlFor="otp">
+                  驗證碼
+                </label>
+                <input
+                  id="otp"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value)}
+                  placeholder="請輸入 6 位數驗證碼"
+                  maxLength={6}
+                  inputMode="numeric"
+                  className="w-full rounded-2xl border border-zinc-300 bg-zinc-50 px-4 py-4 text-2xl tracking-[0.5em] text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={otpLoading}
+                className="inline-flex w-full items-center justify-center rounded-2xl bg-slate-900 px-5 py-4 text-lg font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {otpLoading ? "驗證中..." : "驗證並進入"}
+              </button>
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={handleResend}
+                  disabled={resendCooldown > 0}
+                  className="text-sm text-slate-500 underline disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {resendCooldown > 0 ? `重新發送（${resendCooldown}s）` : "重新發送驗證碼"}
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setStep({ type: "lookup" }); setOtp(""); setOtpError(null); }}
+                className="w-full text-center text-sm text-slate-400 hover:text-slate-600"
+              >
+                ← 返回重新輸入工號
+              </button>
+              {otpError && (
+                <p className="text-center text-base font-medium text-red-600">{otpError}</p>
+              )}
+            </form>
           )}
         </div>
       </main>

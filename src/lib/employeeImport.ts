@@ -109,17 +109,17 @@ export function mapRowsToEmployees(rows: Record<string, unknown>[]): ImportResul
       errors.push(`第 ${rowNo} 列：工號 ${employeeId} 重複，已略過。`);
       return;
     }
-    if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-      errors.push(`第 ${rowNo} 列：email「${email}」格式不正確，已清空該欄。`);
+    if (!email) {
+      errors.push(`第 ${rowNo} 列：${employeeId} 缺少 Email，已略過。`);
+      return;
+    }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      errors.push(`第 ${rowNo} 列：${employeeId} 的 Email「${email}」格式不正確，已略過。`);
+      return;
     }
 
     seen.add(employeeId);
-    employees.push({
-      employeeId,
-      name,
-      department,
-      email: email && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) ? email : "",
-    });
+    employees.push({ employeeId, name, department, email });
   });
 
   return { employees, errors, mapping };

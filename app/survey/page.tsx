@@ -1,25 +1,16 @@
 "use client";
 
-import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { mooncakeItems } from "@/src/data/mooncakeItems";
 import Link from "next/link";
 
 type LockedItem = { itemId: string; quantity: number };
 
 export default function SurveyPage() {
-  return (
-    <Suspense fallback={<div className="min-h-screen bg-zinc-50 flex items-center justify-center text-slate-600">載入中...</div>}>
-      <SurveyContent />
-    </Suspense>
-  );
-}
-
-function SurveyContent() {
-  const searchParams = useSearchParams();
-  const employeeId = searchParams.get("employeeId") ?? "";
-  const employeeName = searchParams.get("name") ?? "";
-  const department = searchParams.get("department") ?? "";
+  const [employeeId, setEmployeeId] = useState("");
+  const [employeeName, setEmployeeName] = useState("");
+  const [department, setDepartment] = useState("");
+  const [sessionReady, setSessionReady] = useState(false);
 
   const [quantities, setQuantities] = useState<Record<string, number>>(
     () => Object.fromEntries(mooncakeItems.map((item) => [item.id, 0]))
@@ -32,13 +23,27 @@ function SurveyContent() {
   const [deadlineExpired, setDeadlineExpired] = useState(false);
   const [deadline, setDeadline] = useState<string | null>(null);
 
-  const hasEmployeeInfo = Boolean(employeeId && employeeName && department);
+  // Load session first
+  useEffect(() => {
+    fetch("/api/session")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.valid) {
+          setEmployeeId(data.employeeId);
+          setEmployeeName(data.name);
+          setDepartment(data.department);
+          setSessionReady(true);
+        } else {
+          window.location.href = "/";
+        }
+      })
+      .catch(() => { window.location.href = "/"; });
+  }, []);
+
+  const hasEmployeeInfo = sessionReady;
 
   useEffect(() => {
-    if (!hasEmployeeInfo) {
-      setCheckingStatus(false);
-      return;
-    }
+    if (!sessionReady || !employeeId) return;
     Promise.all([
       fetch(`/api/submit/check?employeeId=${encodeURIComponent(employeeId)}`).then((res) =>
         res.json()
@@ -66,7 +71,7 @@ function SurveyContent() {
       )
       .catch(() => {})
       .finally(() => setCheckingStatus(false));
-  }, [employeeId, hasEmployeeInfo]);
+  }, [employeeId, sessionReady]);
 
   const selectedItems = useMemo(
     () =>

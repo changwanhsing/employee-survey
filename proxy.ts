@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { verifySession, SESSION_COOKIE } from "./src/lib/session";
 
 const ADMIN_USER = process.env.ADMIN_USER || "admin";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "changeme";
@@ -10,8 +11,20 @@ function unauthorized() {
   });
 }
 
-export function proxy(request: NextRequest) {
-  if (request.nextUrl.pathname === "/api/submit" && request.method !== "GET") {
+export async function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // Protect /survey with session cookie
+  if (pathname === "/survey") {
+    const token = request.cookies.get(SESSION_COOKIE)?.value;
+    if (!token) return NextResponse.redirect(new URL("/", request.url));
+    const session = await verifySession(token);
+    if (!session) return NextResponse.redirect(new URL("/", request.url));
+    return NextResponse.next();
+  }
+
+  // Admin routes: Basic Auth
+  if (pathname === "/api/submit" && request.method !== "GET") {
     return NextResponse.next();
   }
 
@@ -34,6 +47,7 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
+    "/survey",
     "/admin",
     "/api/submit",
     "/api/submit/export",
