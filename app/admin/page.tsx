@@ -15,6 +15,7 @@ type Employee = {
   employeeId: string;
   name: string;
   department: string;
+  email?: string;
 };
 
 type ImportResponse = {
@@ -27,6 +28,224 @@ type ImportResponse = {
 
 function itemName(itemId: string, surveyItems: SurveyItem[]) {
   return surveyItems.find((item) => item.id === itemId)?.name ?? itemId;
+}
+
+// ── Employee Manager ────────────────────────────────────────────────────────
+
+function EmployeeManager({
+  employees,
+  onChanged,
+}: {
+  employees: Employee[];
+  onChanged: () => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", department: "", email: "" });
+  const [editError, setEditError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const [showAdd, setShowAdd] = useState(false);
+  const [addForm, setAddForm] = useState({ employeeId: "", name: "", department: "", email: "" });
+  const [addError, setAddError] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+
+  const filtered = employees.filter((e) => {
+    if (!query.trim()) return true;
+    const q = query.trim().toLowerCase();
+    return (
+      e.employeeId.toLowerCase().includes(q) ||
+      e.name.toLowerCase().includes(q) ||
+      e.department.toLowerCase().includes(q) ||
+      (e.email ?? "").toLowerCase().includes(q)
+    );
+  });
+
+  function startEdit(emp: Employee) {
+    setEditingId(emp.employeeId);
+    setEditForm({ name: emp.name, department: emp.department, email: emp.email ?? "" });
+    setEditError(null);
+  }
+
+  async function handleSaveEdit(employeeId: string) {
+    setSaving(true);
+    setEditError(null);
+    try {
+      const res = await fetch(`/api/employees/${encodeURIComponent(employeeId)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editForm),
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error);
+      setEditingId(null);
+      onChanged();
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : "更新失敗");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(employeeId: string, name: string) {
+    if (!confirm(`確定要刪除員工「${name}」（${employeeId}）？`)) return;
+    await fetch(`/api/employees/${encodeURIComponent(employeeId)}`, { method: "DELETE" });
+    onChanged();
+  }
+
+  async function handleAdd() {
+    setAdding(true);
+    setAddError(null);
+    try {
+      const res = await fetch("/api/employees", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(addForm),
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error);
+      setAddForm({ employeeId: "", name: "", department: "", email: "" });
+      setShowAdd(false);
+      onChanged();
+    } catch (err) {
+      setAddError(err instanceof Error ? err.message : "新增失敗");
+    } finally {
+      setAdding(false);
+    }
+  }
+
+  const inputCls = "w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200";
+
+  return (
+    <div className="mb-8 rounded-3xl border border-zinc-200 bg-white p-5 sm:p-6 shadow-sm shadow-zinc-200/50">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold text-slate-900">員工名冊（{employees.length} 人）</h2>
+        <button
+          type="button"
+          onClick={() => { setShowAdd((v) => !v); setAddError(null); }}
+          className="inline-flex items-center gap-1 rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-zinc-50"
+        >
+          + 新增員工
+        </button>
+      </div>
+
+      {/* 新增表單 */}
+      {showAdd && (
+        <div className="mb-4 rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
+          <p className="mb-3 text-sm font-medium text-slate-700">新增員工</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">工號 *</label>
+              <input type="text" value={addForm.employeeId} onChange={(e) => setAddForm((f) => ({ ...f, employeeId: e.target.value }))} className={inputCls} placeholder="例：10001" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">姓名 *</label>
+              <input type="text" value={addForm.name} onChange={(e) => setAddForm((f) => ({ ...f, name: e.target.value }))} className={inputCls} placeholder="王小明" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">部門 *</label>
+              <input type="text" value={addForm.department} onChange={(e) => setAddForm((f) => ({ ...f, department: e.target.value }))} className={inputCls} placeholder="業務部" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">Email *</label>
+              <input type="email" value={addForm.email} onChange={(e) => setAddForm((f) => ({ ...f, email: e.target.value }))} className={inputCls} placeholder="example@company.com" />
+            </div>
+          </div>
+          {addError && <p className="mt-2 text-xs text-red-500">{addError}</p>}
+          <div className="mt-3 flex gap-2">
+            <button type="button" onClick={handleAdd} disabled={adding} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:opacity-50">
+              {adding ? "新增中..." : "確認新增"}
+            </button>
+            <button type="button" onClick={() => setShowAdd(false)} className="rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-zinc-50">
+              取消
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 搜尋 */}
+      <input
+        type="text"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="搜尋工號、姓名、部門或 Email"
+        className="mb-4 w-full rounded-2xl border border-zinc-300 bg-white px-4 py-3 text-base text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+      />
+
+      <div className="overflow-x-auto rounded-2xl border border-zinc-200">
+        <table className="w-full min-w-[640px] text-left text-sm">
+          <thead className="bg-zinc-100 text-slate-700">
+            <tr>
+              <th className="px-4 py-3 font-semibold">工號</th>
+              <th className="px-4 py-3 font-semibold">姓名</th>
+              <th className="px-4 py-3 font-semibold">部門</th>
+              <th className="px-4 py-3 font-semibold">Email</th>
+              <th className="px-4 py-3 font-semibold">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-4 py-6 text-center text-slate-400">
+                  {query ? "查無符合的員工" : "尚無員工資料"}
+                </td>
+              </tr>
+            ) : (
+              filtered.map((emp) =>
+                editingId === emp.employeeId ? (
+                  <tr key={emp.employeeId} className="border-t border-zinc-100 bg-blue-50">
+                    <td className="px-4 py-2 font-medium text-slate-900">{emp.employeeId}</td>
+                    <td className="px-4 py-2">
+                      <input value={editForm.name} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} className={inputCls} />
+                    </td>
+                    <td className="px-4 py-2">
+                      <input value={editForm.department} onChange={(e) => setEditForm((f) => ({ ...f, department: e.target.value }))} className={inputCls} />
+                    </td>
+                    <td className="px-4 py-2">
+                      <input value={editForm.email} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))} className={inputCls} />
+                    </td>
+                    <td className="px-4 py-2">
+                      <div className="flex flex-col gap-1">
+                        <div className="flex gap-2">
+                          <button type="button" onClick={() => handleSaveEdit(emp.employeeId)} disabled={saving} className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-700 disabled:opacity-50">
+                            {saving ? "儲存中" : "儲存"}
+                          </button>
+                          <button type="button" onClick={() => setEditingId(null)} className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-zinc-50">
+                            取消
+                          </button>
+                        </div>
+                        {editError && <p className="text-xs text-red-500">{editError}</p>}
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  <tr key={emp.employeeId} className="border-t border-zinc-100 hover:bg-zinc-50">
+                    <td className="px-4 py-3 font-medium text-slate-900">{emp.employeeId}</td>
+                    <td className="px-4 py-3">{emp.name}</td>
+                    <td className="px-4 py-3">{emp.department}</td>
+                    <td className="px-4 py-3 text-slate-500">{emp.email ?? "—"}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-2">
+                        <button type="button" onClick={() => startEdit(emp)} className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-zinc-50">
+                          編輯
+                        </button>
+                        <button type="button" onClick={() => handleDelete(emp.employeeId, emp.name)} className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-50">
+                          刪除
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              )
+            )}
+          </tbody>
+        </table>
+      </div>
+      {filtered.length > 0 && query && (
+        <p className="mt-2 text-xs text-slate-400">顯示 {filtered.length} / {employees.length} 筆</p>
+      )}
+    </div>
+  );
 }
 
 // ── Item Image Uploader ─────────────────────────────────────────────────────
@@ -568,6 +787,12 @@ export default function AdminPage() {
               <a href="/api/submit/export" className="inline-flex rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-700">
                 匯出 CSV
               </a>
+              <a href="/admin/employees" className="inline-flex rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
+                員工名冊
+              </a>
+              <a href="/admin/unsubmitted" className="inline-flex rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
+                未送出名單
+              </a>
               <label className="inline-flex cursor-pointer rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
                 {importing ? "匯入中..." : "匯入員工 Excel"}
                 <input type="file" accept=".xlsx,.xls,.csv" className="hidden" disabled={importing} onChange={handleImport} />
@@ -663,22 +888,6 @@ export default function AdminPage() {
                   );
                 })}
               </div>
-            </div>
-
-            <div className="mb-8 rounded-3xl border border-zinc-200 bg-white p-5 sm:p-6 shadow-sm shadow-zinc-200/50">
-              <h2 className="mb-4 text-lg font-semibold text-slate-900">未送出名單（{unsubmitted.length} 人）</h2>
-              {unsubmitted.length === 0 ? (
-                <p className="text-sm text-slate-500">所有員工皆已送出。</p>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {unsubmitted.map((employee) => (
-                    <span key={employee.employeeId} className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-sm text-amber-800">
-                      {employee.name}
-                      <span className="text-amber-500">（{employee.employeeId}・{employee.department}）</span>
-                    </span>
-                  ))}
-                </div>
-              )}
             </div>
 
             {surveyItems.length > 0 && (
