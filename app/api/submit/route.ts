@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { mooncakeItems } from "../../../src/data/mooncakeItems";
+import { getSurveyConfig, isConfigDeadlinePassed } from "../../../src/lib/surveyConfig";
 import { isDeadlinePassed } from "../../../src/config/deadline";
 import { getEmployees } from "../../../src/data/employees";
 import { clientKey, rateLimit } from "../../../src/lib/rateLimit";
@@ -9,9 +9,10 @@ import { supabase } from "../../../src/lib/supabase";
 function renderConfirmationEmail(
   name: string,
   department: string,
+  surveyTitle: string,
   items: { itemId: string; quantity: number }[],
+  itemNameById: Map<string, string>,
 ): string {
-  const itemNameById = new Map(mooncakeItems.map((item) => [item.id, item.name]));
   const listHtml =
     items.length === 0
       ? "<p>您本次未選擇任何品項。</p>"
@@ -24,10 +25,11 @@ function renderConfirmationEmail(
 
   return `
     <div style="font-family: sans-serif; line-height: 1.6; color: #0f172a;">
-      <h2>中秋月餅調查 — 送出確認</h2>
+      <h2>${surveyTitle} — 送出確認</h2>
       <p>${name}（${department}）您好，我們已收到您的選擇：</p>
       ${listHtml}
-      <p style="color:#64748b; font-size:13px;">如需修改，請於收件截止前重新登入調整。此信為系統自動發送，請勿直接回覆。</p>
+      <p><a href="${process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000"}" style="display:inline-block;margin-top:8px;padding:10px 20px;background:#0f172a;color:#fff;text-decoration:none;border-radius:8px;font-size:14px;font-weight:600;">重新填寫調查表</a></p>
+      <p style="color:#64748b; font-size:13px;">如需修改，請於收件截止前點上方連結重新登入調整。此信為系統自動發送，請勿直接回覆。</p>
     </div>
   `;
 }
@@ -41,7 +43,13 @@ export async function POST(request: Request) {
     );
   }
 
-  if (isDeadlinePassed()) {
+  const config = await getSurveyConfig();
+
+  const deadlinePassed = config.deadline
+    ? isConfigDeadlinePassed(config)
+    : isDeadlinePassed();
+
+  if (deadlinePassed) {
     return NextResponse.json(
       { ok: false, error: "已超過收件期限，無法送出" },
       { status: 403 },
@@ -74,13 +82,16 @@ export async function POST(request: Request) {
 
   const department = employee.department;
 
-  const validItemIds = new Set(mooncakeItems.map((item) => item.id));
+  const itemMap = new Map(config.items.map((item) => [item.id, item]));
   const items = Object.entries(quantities)
-    .filter(([itemId, quantity]) => validItemIds.has(itemId) && quantity > 0)
-    .map(([itemId, quantity]) => ({
-      itemId,
-      quantity: Math.min(5, Math.max(0, Math.trunc(quantity))),
-    }));
+    .filter(([itemId, quantity]) => itemMap.has(itemId) && quantity > 0)
+    .map(([itemId, quantity]) => {
+      const maxQty = itemMap.get(itemId)!.maxQuantity;
+      return {
+        itemId,
+        quantity: Math.min(maxQty, Math.max(0, Math.trunc(quantity))),
+      };
+    });
 
   const { error } = await supabase.from("submissions").upsert(
     {
@@ -101,10 +112,11 @@ export async function POST(request: Request) {
   }
 
   if (employee.email) {
+    const itemNameById = new Map(config.items.map((item) => [item.id, item.name]));
     await sendMail({
       to: employee.email,
-      subject: "中秋月餅調查 — 送出確認",
-      html: renderConfirmationEmail(employee.name, department, items),
+      subject: `${config.title} — 送出確認`,
+      html: renderConfirmationEmail(employee.name, department, config.title, items, itemNameById),
     });
   }
 

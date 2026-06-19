@@ -1,5 +1,5 @@
-import { mooncakeItems } from "../../../../src/data/mooncakeItems";
 import { supabase } from "../../../../src/lib/supabase";
+import { getSurveyConfig } from "../../../../src/lib/surveyConfig";
 
 function csvEscape(value: string) {
   if (/[",\n]/.test(value)) {
@@ -9,15 +9,16 @@ function csvEscape(value: string) {
 }
 
 export async function GET() {
-  const { data, error } = await supabase
-    .from("submissions")
-    .select("employee_id, name, department, items, submitted_at");
+  const [{ data, error }, config] = await Promise.all([
+    supabase.from("submissions").select("employee_id, name, department, items, submitted_at"),
+    getSurveyConfig(),
+  ]);
 
   if (error) {
     return new Response("無法取得資料", { status: 500 });
   }
 
-  const itemNameById = new Map(mooncakeItems.map((item) => [item.id, item.name]));
+  const itemNameById = new Map(config.items.map((item) => [item.id, item.name]));
 
   const header = ["工號", "姓名", "部門", "選擇品項", "送出時間"];
   const rows = (data ?? []).map((row) => {

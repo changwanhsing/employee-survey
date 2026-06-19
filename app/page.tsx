@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import DeadlineBanner from "./components/DeadlineBanner";
 
@@ -11,6 +11,21 @@ type Step =
 export default function Home() {
   const router = useRouter();
   const [step, setStep] = useState<Step>({ type: "lookup" });
+  const [surveyTitle, setSurveyTitle] = useState<string>("");
+  const [existingSession, setExistingSession] = useState<{ name: string; employeeId: string } | null>(null);
+  const [sessionChecked, setSessionChecked] = useState(false);
+
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/survey-config").then((res) => res.json()),
+      fetch("/api/session").then((res) => res.json()),
+    ]).then(([configData, sessionData]) => {
+      setSurveyTitle(configData.title ?? "");
+      if (sessionData.valid) {
+        setExistingSession({ name: sessionData.name, employeeId: sessionData.employeeId });
+      }
+    }).catch(() => {}).finally(() => setSessionChecked(true));
+  }, []);
 
   const [employeeId, setEmployeeId] = useState("");
   const [lookupError, setLookupError] = useState<string | null>(null);
@@ -118,7 +133,7 @@ export default function Home() {
               調查系統
             </p>
             <h1 className="mt-3 text-3xl font-bold leading-tight text-slate-900">
-              中秋月餅調查
+              {surveyTitle || "員工調查"}
             </h1>
             <p className="mt-2 text-sm text-slate-600">
               {step.type === "lookup" ? "請輸入您的員工工號以接收驗證碼。" : "請輸入寄送至您信箱的驗證碼。"}
@@ -127,30 +142,49 @@ export default function Home() {
           </div>
 
           {step.type === "lookup" ? (
-            <form className="space-y-5" onSubmit={handleLookup}>
-              <div>
-                <label className="block text-base font-medium text-slate-700 mb-2" htmlFor="employeeId">
-                  員工工號
-                </label>
-                <input
-                  id="employeeId"
-                  value={employeeId}
-                  onChange={(e) => setEmployeeId(e.target.value)}
-                  placeholder="例如 A001"
-                  className="w-full rounded-2xl border border-zinc-300 bg-zinc-50 px-4 py-4 text-xl text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={lookupLoading}
-                className="inline-flex w-full items-center justify-center rounded-2xl bg-slate-900 px-5 py-4 text-lg font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {lookupLoading ? "發送中..." : "發送驗證碼"}
-              </button>
-              {lookupError && (
-                <p className="text-center text-base font-medium text-red-600">{lookupError}</p>
+            <div className="space-y-5">
+              {sessionChecked && existingSession && (
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+                  <p className="text-sm text-emerald-700">
+                    上次登入：<span className="font-semibold">{existingSession.name}</span>（{existingSession.employeeId}）
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => router.push("/survey")}
+                    className="mt-3 inline-flex w-full items-center justify-center rounded-2xl bg-emerald-600 px-5 py-4 text-lg font-semibold text-white transition hover:bg-emerald-700"
+                  >
+                    直接登入
+                  </button>
+                  <p className="mt-2 text-center text-xs text-emerald-600">
+                    不是本人？請用下方工號重新發送驗證碼
+                  </p>
+                </div>
               )}
-            </form>
+              <form className="space-y-5" onSubmit={handleLookup}>
+                <div>
+                  <label className="block text-base font-medium text-slate-700 mb-2" htmlFor="employeeId">
+                    員工工號
+                  </label>
+                  <input
+                    id="employeeId"
+                    value={employeeId}
+                    onChange={(e) => setEmployeeId(e.target.value)}
+                    placeholder="例如 A001"
+                    className="w-full rounded-2xl border border-zinc-300 bg-zinc-50 px-4 py-4 text-xl text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={lookupLoading}
+                  className="inline-flex w-full items-center justify-center rounded-2xl bg-slate-900 px-5 py-4 text-lg font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {lookupLoading ? "發送中..." : "發送驗證碼"}
+                </button>
+                {lookupError && (
+                  <p className="text-center text-base font-medium text-red-600">{lookupError}</p>
+                )}
+              </form>
+            </div>
           ) : (
             <form className="space-y-5" onSubmit={handleVerify}>
               <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-center text-sm text-blue-800">

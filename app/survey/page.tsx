@@ -1,8 +1,8 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { mooncakeItems } from "@/src/data/mooncakeItems";
 import Link from "next/link";
+import type { SurveyConfig } from "@/src/lib/surveyConfig";
 
 type LockedItem = { itemId: string; quantity: number };
 
@@ -12,9 +12,8 @@ export default function SurveyPage() {
   const [department, setDepartment] = useState("");
   const [sessionReady, setSessionReady] = useState(false);
 
-  const [quantities, setQuantities] = useState<Record<string, number>>(
-    () => Object.fromEntries(mooncakeItems.map((item) => [item.id, 0]))
-  );
+  const [config, setConfig] = useState<SurveyConfig | null>(null);
+  const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [hasPreviousSubmission, setHasPreviousSubmission] = useState(false);
   const [justSubmitted, setJustSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -23,7 +22,6 @@ export default function SurveyPage() {
   const [deadlineExpired, setDeadlineExpired] = useState(false);
   const [deadline, setDeadline] = useState<string | null>(null);
 
-  // Load session first
   useEffect(() => {
     fetch("/api/session")
       .then((res) => res.json())
@@ -40,7 +38,16 @@ export default function SurveyPage() {
       .catch(() => { window.location.href = "/"; });
   }, []);
 
-  const hasEmployeeInfo = sessionReady;
+  // Load survey config
+  useEffect(() => {
+    fetch("/api/survey-config")
+      .then((res) => res.json())
+      .then((data: SurveyConfig) => {
+        setConfig(data);
+        setQuantities(Object.fromEntries(data.items.map((item) => [item.id, 0])));
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!sessionReady || !employeeId) return;
@@ -73,17 +80,20 @@ export default function SurveyPage() {
       .finally(() => setCheckingStatus(false));
   }, [employeeId, sessionReady]);
 
+  const items = config?.items ?? [];
+
   const selectedItems = useMemo(
     () =>
-      mooncakeItems
-        .map((item) => ({ item, quantity: quantities[item.id] }))
+      items
+        .map((item) => ({ item, quantity: quantities[item.id] ?? 0 }))
         .filter(({ quantity }) => quantity > 0),
-    [quantities]
+    [quantities, items]
   );
 
   const handleQuantityChange = (itemId: string, delta: number) => {
+    const maxQty = items.find((i) => i.id === itemId)?.maxQuantity ?? 5;
     setQuantities((current) => {
-      const nextValue = Math.min(5, Math.max(0, (current[itemId] ?? 0) + delta));
+      const nextValue = Math.min(maxQty, Math.max(0, (current[itemId] ?? 0) + delta));
       return { ...current, [itemId]: nextValue };
     });
   };
@@ -122,6 +132,7 @@ export default function SurveyPage() {
   const showLockedSummary = deadlineExpired && hasPreviousSubmission;
   const showDeadlineBlocked = deadlineExpired && !hasPreviousSubmission;
   const showConfirmation = justSubmitted && !deadlineExpired;
+  const loading = !sessionReady || config === null || checkingStatus;
 
   return (
     <div className="min-h-screen bg-zinc-50 text-slate-900">
@@ -132,22 +143,11 @@ export default function SurveyPage() {
               調查系統
             </p>
             <h1 className="mt-3 text-3xl font-bold leading-tight text-slate-900">
-              月餅品項選擇
+              {config?.title ?? "載入中..."}
             </h1>
           </div>
 
-          {!hasEmployeeInfo ? (
-            <div className="space-y-4 rounded-2xl border border-red-100 bg-red-50 p-5 text-red-700">
-              <p className="font-semibold">無效的員工資料。</p>
-              <p>請由首頁重新查詢後進入。</p>
-              <Link
-                href="/"
-                className="inline-flex rounded-2xl bg-slate-900 px-5 py-3 text-base font-semibold text-white transition hover:bg-slate-700"
-              >
-                返回首頁
-              </Link>
-            </div>
-          ) : checkingStatus ? (
+          {!sessionReady ? (
             <p className="text-center text-slate-600">載入中...</p>
           ) : showDeadlineBlocked ? (
             <div className="space-y-4 rounded-2xl border border-amber-100 bg-amber-50 p-5 text-amber-800">
@@ -168,13 +168,7 @@ export default function SurveyPage() {
             <div className="space-y-6 text-center">
               <div className="flex justify-center">
                 <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
-                  <svg
-                    className="h-8 w-8 text-emerald-600"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
+                  <svg className="h-8 w-8 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
@@ -183,17 +177,15 @@ export default function SurveyPage() {
               <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 text-left text-slate-900">
                 {selectedItems.length === 0 ? (
                   <p className="text-base font-semibold">
-                    {employeeName}({department})未選擇任何品項
+                    {employeeName}（{department}）未選擇任何品項
                   </p>
                 ) : (
                   <div className="space-y-3">
                     <p className="text-base font-semibold">
-                      {employeeName}({department})已選擇：
+                      {employeeName}（{department}）已選擇：
                     </p>
                     <p className="text-sm leading-relaxed text-slate-700">
-                      {selectedItems
-                        .map(({ item, quantity }) => `${item.name} x${quantity}`)
-                        .join("、")}
+                      {selectedItems.map(({ item, quantity }) => `${item.name} x${quantity}`).join("、")}
                     </p>
                   </div>
                 )}
@@ -210,13 +202,7 @@ export default function SurveyPage() {
             <div className="space-y-6 text-center">
               <div className="flex justify-center">
                 <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
-                  <svg
-                    className="h-8 w-8 text-emerald-600"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
+                  <svg className="h-8 w-8 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
@@ -225,17 +211,15 @@ export default function SurveyPage() {
               <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 text-left text-slate-900">
                 {selectedItems.length === 0 ? (
                   <p className="text-base font-semibold">
-                    {employeeName}({department})未選擇任何品項
+                    {employeeName}（{department}）未選擇任何品項
                   </p>
                 ) : (
                   <div className="space-y-3">
                     <p className="text-base font-semibold">
-                      {employeeName}({department})已選擇：
+                      {employeeName}（{department}）已選擇：
                     </p>
                     <p className="text-sm leading-relaxed text-slate-700">
-                      {selectedItems
-                        .map(({ item, quantity }) => `${item.name} x${quantity}`)
-                        .join("、")}
+                      {selectedItems.map(({ item, quantity }) => `${item.name} x${quantity}`).join("、")}
                     </p>
                   </div>
                 )}
@@ -259,12 +243,14 @@ export default function SurveyPage() {
                 返回首頁
               </Link>
             </div>
+          ) : loading ? (
+            <p className="text-center text-slate-600">載入中...</p>
           ) : (
             <form className="space-y-6" onSubmit={handleSubmit}>
               <div className="rounded-3xl border border-zinc-200 bg-zinc-50 p-5">
                 <p className="text-base text-slate-700">
-                  您好，<span className="font-semibold">{employeeName}</span>(
-                  <span className="font-semibold">{department}</span>), 請選擇您要的月餅(可不選)
+                  您好，<span className="font-semibold">{employeeName}</span>（
+                  <span className="font-semibold">{department}</span>），請選擇您要的品項（可不選）
                 </p>
                 {hasPreviousSubmission && (
                   <p className="mt-2 text-sm text-slate-500">
@@ -274,11 +260,21 @@ export default function SurveyPage() {
               </div>
 
               <div className="space-y-4">
-                {mooncakeItems.map((item) => (
+                {items.map((item) => (
                   <div key={item.id} className="rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm shadow-zinc-100">
+                    {item.imageUrl && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={item.imageUrl}
+                        alt={item.name}
+                        className="mb-4 h-40 w-full rounded-2xl object-cover"
+                      />
+                    )}
                     <div className="mb-3">
                       <h2 className="text-xl font-semibold text-slate-900">{item.name}</h2>
-                      <p className="mt-2 text-sm text-slate-600">{item.description}</p>
+                      {item.description && (
+                        <p className="mt-2 text-sm text-slate-600">{item.description}</p>
+                      )}
                     </div>
                     <div className="flex items-center justify-between gap-3">
                       <div className="inline-flex items-center rounded-2xl border border-zinc-200 bg-zinc-100 p-1">
@@ -286,23 +282,23 @@ export default function SurveyPage() {
                           type="button"
                           className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-xl font-semibold text-slate-900 transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40"
                           onClick={() => handleQuantityChange(item.id, -1)}
-                          disabled={quantities[item.id] <= 0}
+                          disabled={(quantities[item.id] ?? 0) <= 0}
                         >
                           -
                         </button>
                         <span className="mx-4 min-w-[2rem] text-center text-lg font-semibold text-slate-900">
-                          {quantities[item.id]}
+                          {quantities[item.id] ?? 0}
                         </span>
                         <button
                           type="button"
                           className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-xl font-semibold text-slate-900 transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40"
                           onClick={() => handleQuantityChange(item.id, 1)}
-                          disabled={quantities[item.id] >= 5}
+                          disabled={(quantities[item.id] ?? 0) >= item.maxQuantity}
                         >
                           +
                         </button>
                       </div>
-                      <span className="text-sm text-slate-500">最多 5 個</span>
+                      <span className="text-sm text-slate-500">最多 {item.maxQuantity} 個</span>
                     </div>
                   </div>
                 ))}
