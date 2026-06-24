@@ -35,7 +35,7 @@ export async function POST(request: Request) {
   }
 
   const { data: surveyRow } = await supabase
-    .from("surveys")
+    .from("survey_config")
     .select("title")
     .eq("is_active", true)
     .maybeSingle();
