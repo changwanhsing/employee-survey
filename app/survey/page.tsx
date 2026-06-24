@@ -276,18 +276,15 @@ export default function SurveyPage() {
                         <p className="mt-2 text-sm text-slate-600">{item.description}</p>
                       )}
                     </div>
-                    {(item.selectionType ?? "multiple") === "single" ? (
+                    {(config?.selectionType ?? "multiple") === "single" ? (
                       <button
                         type="button"
                         onClick={() => setQuantities((q) => {
                           const selecting = !q[item.id];
                           const next = { ...q };
                           if (selecting) {
-                            // 取消所有其他單選品項
                             for (const other of items) {
-                              if (other.id !== item.id && (other.selectionType ?? "multiple") === "single") {
-                                next[other.id] = 0;
-                              }
+                              if (other.id !== item.id) next[other.id] = 0;
                             }
                           }
                           next[item.id] = selecting ? 1 : 0;

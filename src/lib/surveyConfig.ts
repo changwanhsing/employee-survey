@@ -6,13 +6,13 @@ export type SurveyItem = {
   description: string;
   maxQuantity: number;
   imageUrl?: string;
-  selectionType?: "single" | "multiple";
 };
 
 export type SurveyConfig = {
   title: string;
   items: SurveyItem[];
   deadline: string | null;
+  selectionType?: "single" | "multiple";
 };
 
 export type SurveyMeta = {
@@ -33,7 +33,7 @@ const DEFAULT_CONFIG: SurveyConfig = {
 export async function getSurveyConfig(): Promise<SurveyConfig> {
   const { data, error } = await supabase
     .from("survey_config")
-    .select("title, items, deadline")
+    .select("title, items, deadline, selection_type")
     .eq("is_active", true)
     .limit(1)
     .single();
@@ -44,6 +44,7 @@ export async function getSurveyConfig(): Promise<SurveyConfig> {
     title: typeof data.title === "string" ? data.title : DEFAULT_CONFIG.title,
     items: Array.isArray(data.items) ? (data.items as SurveyItem[]) : [],
     deadline: data.deadline ?? null,
+    selectionType: data.selection_type === "single" ? "single" : "multiple",
   };
 }
 
@@ -71,7 +72,7 @@ export async function getSurveyById(
 ): Promise<(SurveyConfig & { surveyName: string }) | null> {
   const { data, error } = await supabase
     .from("survey_config")
-    .select("survey_name, title, items, deadline")
+    .select("survey_name, title, items, deadline, selection_type")
     .eq("id", id)
     .single();
 
@@ -82,6 +83,7 @@ export async function getSurveyById(
     title: data.title ?? "",
     items: Array.isArray(data.items) ? (data.items as SurveyItem[]) : [],
     deadline: data.deadline ?? null,
+    selectionType: data.selection_type === "single" ? "single" : "multiple",
   };
 }
 
@@ -113,6 +115,7 @@ export async function updateSurvey(
     title: string;
     items: SurveyItem[];
     deadline: string | null;
+    selectionType: "single" | "multiple";
   }>,
 ): Promise<void> {
   const dbUpdate: Record<string, unknown> = { updated_at: new Date().toISOString() };
@@ -120,6 +123,7 @@ export async function updateSurvey(
   if (update.title !== undefined) dbUpdate.title = update.title;
   if (update.items !== undefined) dbUpdate.items = update.items;
   if ("deadline" in update) dbUpdate.deadline = update.deadline;
+  if (update.selectionType !== undefined) dbUpdate.selection_type = update.selectionType;
   await supabase.from("survey_config").update(dbUpdate).eq("id", id);
 }
 
