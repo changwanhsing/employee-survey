@@ -203,7 +203,7 @@ export default function Home() {
                   placeholder="請輸入 6 位數驗證碼"
                   maxLength={6}
                   inputMode="numeric"
-                  className="w-full rounded-2xl border border-zinc-300 bg-zinc-50 px-4 py-4 text-2xl tracking-[0.5em] text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                  className="w-full rounded-2xl border border-zinc-300 bg-zinc-50 px-4 py-4 text-2xl tracking-[0.5em] text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200 placeholder:tracking-normal placeholder:text-sm"
                 />
               </div>
               <button
