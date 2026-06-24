@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { SurveyConfig, SurveyItem, SurveyMeta } from "@/src/lib/surveyConfig";
 
 type Submission = {
@@ -16,14 +16,6 @@ type Employee = {
   name: string;
   department: string;
   email?: string;
-};
-
-type ImportResponse = {
-  ok: boolean;
-  imported?: number;
-  warnings?: string[];
-  error?: string;
-  details?: string[];
 };
 
 function itemName(itemId: string, surveyItems: SurveyItem[]) {
@@ -640,9 +632,7 @@ export default function AdminPage() {
   const [activeSurveyItems, setActiveSurveyItems] = useState<SurveyItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [importing, setImporting] = useState(false);
-  const [importResult, setImportResult] = useState<ImportResponse | null>(null);
-  const [editingSurveyId, setEditingSurveyId] = useState<string | null>(null);
+const [editingSurveyId, setEditingSurveyId] = useState<string | null>(null);
   const [editingConfig, setEditingConfig] = useState<(SurveyConfig & { surveyName: string }) | null>(null);
 
   const loadSurveys = useCallback(async () => {
@@ -674,26 +664,6 @@ export default function AdminPage() {
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
-
-  async function handleImport(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
-    setImporting(true);
-    setImportResult(null);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const response = await fetch("/api/employees/import", { method: "POST", body: formData });
-      const data: ImportResponse = await response.json();
-      setImportResult(data);
-      if (data.ok) await loadData();
-    } catch {
-      setImportResult({ ok: false, error: "上傳失敗，請稍後再試。" });
-    } finally {
-      setImporting(false);
-    }
-  }
 
   async function handleEdit(id: string) {
     const res = await fetch(`/api/admin/surveys/${id}`);
@@ -785,11 +755,7 @@ export default function AdminPage() {
               <a href="/admin/employees" className="inline-flex rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
                 員工名冊
               </a>
-              <label className="inline-flex cursor-pointer rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
-                {importing ? "匯入中..." : "匯入員工名冊 Excel"}
-                <input type="file" accept=".xlsx,.xls,.csv" className="hidden" disabled={importing} onChange={handleImport} />
-              </label>
-              <a href="/admin/unsubmitted" target="_blank" rel="noopener noreferrer" className="inline-flex rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
+<a href="/admin/unsubmitted" target="_blank" rel="noopener noreferrer" className="inline-flex rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
                 未送出名單
               </a>
               <a href="/api/submit/export" className="inline-flex rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-700">
@@ -804,21 +770,6 @@ export default function AdminPage() {
             </a>
           </div>
         </div>
-
-        {importResult && (
-          <div className={`mb-6 rounded-3xl border p-5 ${importResult.ok ? "border-emerald-100 bg-emerald-50 text-emerald-800" : "border-red-100 bg-red-50 text-red-700"}`}>
-            {importResult.ok ? (
-              <p className="font-semibold">已匯入 {importResult.imported} 筆員工資料，員工名冊已更新。</p>
-            ) : (
-              <p className="font-semibold">{importResult.error ?? "匯入失敗。"}</p>
-            )}
-            {(importResult.warnings?.length || importResult.details?.length) ? (
-              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
-                {[...(importResult.warnings ?? []), ...(importResult.details ?? [])].map((msg, i) => <li key={i}>{msg}</li>)}
-              </ul>
-            ) : null}
-          </div>
-        )}
 
         {error && (
           <div className="mb-6 rounded-3xl border border-red-100 bg-red-50 p-5 text-red-700">
