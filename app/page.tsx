@@ -30,6 +30,7 @@ export default function Home() {
   const [employeeId, setEmployeeId] = useState("");
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [lookupLoading, setLookupLoading] = useState(false);
+  const [lookupCooldown, setLookupCooldown] = useState(0);
 
   const [otp, setOtp] = useState("");
   const [otpError, setOtpError] = useState<string | null>(null);
@@ -53,7 +54,19 @@ export default function Home() {
       });
       const data = await res.json();
       if (!data.ok) {
-        setLookupError(data.error || "查詢失敗，請稍後再試");
+        const retryAfter = parseInt(res.headers.get("Retry-After") ?? "0", 10);
+        if (retryAfter > 0) {
+          setLookupCooldown(retryAfter);
+          setLookupError(null);
+          const interval = setInterval(() => {
+            setLookupCooldown((prev) => {
+              if (prev <= 1) { clearInterval(interval); return 0; }
+              return prev - 1;
+            });
+          }, 1000);
+        } else {
+          setLookupError(data.error || "查詢失敗，請稍後再試");
+        }
         return;
       }
       setStep({ type: "otp", employeeId: trimmedId, maskedEmail: data.maskedEmail });
@@ -180,7 +193,10 @@ export default function Home() {
                 >
                   {lookupLoading ? "發送中..." : "發送驗證碼"}
                 </button>
-                {lookupError && (
+                {lookupCooldown > 0 && (
+                  <p className="text-center text-base font-medium text-amber-600">請等待 {lookupCooldown} 秒後再重新發送。</p>
+                )}
+                {lookupError && lookupCooldown === 0 && (
                   <p className="text-center text-base font-medium text-red-600">{lookupError}</p>
                 )}
               </form>
