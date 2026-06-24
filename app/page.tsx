@@ -169,7 +169,7 @@ export default function Home() {
                     id="employeeId"
                     value={employeeId}
                     onChange={(e) => setEmployeeId(e.target.value)}
-                    placeholder="例如 A001"
+                    placeholder="例如 10001"
                     className="w-full rounded-2xl border border-zinc-300 bg-zinc-50 px-4 py-4 text-xl text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
                   />
                 </div>

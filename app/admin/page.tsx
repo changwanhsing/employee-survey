@@ -778,28 +778,24 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-zinc-50 text-slate-900">
       <main className="mx-auto min-h-screen max-w-4xl px-4 py-8 sm:px-5 sm:py-10">
-        <div className="mb-8 flex items-start justify-between">
-          <div className="flex-1" />
-          <div className="flex-1 text-center">
-            <p className="text-sm font-semibold uppercase tracking-[0.3em] text-zinc-500">調查系統</p>
-            <h1 className="mt-3 text-3xl font-bold leading-tight text-slate-900">送出紀錄管理</h1>
-            <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
-              <a href="/api/submit/export" className="inline-flex rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-700">
-                匯出 CSV
-              </a>
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold leading-tight text-slate-900 text-center">員工調查系統後台管理</h1>
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <a href="/admin/employees" className="inline-flex rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
                 員工名冊
               </a>
-              <a href="/admin/unsubmitted" className="inline-flex rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
-                未送出名單
-              </a>
               <label className="inline-flex cursor-pointer rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
-                {importing ? "匯入中..." : "匯入員工 Excel"}
+                {importing ? "匯入中..." : "匯入員工名冊 Excel"}
                 <input type="file" accept=".xlsx,.xls,.csv" className="hidden" disabled={importing} onChange={handleImport} />
               </label>
+              <a href="/admin/unsubmitted" target="_blank" rel="noopener noreferrer" className="inline-flex rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
+                未送出名單
+              </a>
+              <a href="/api/submit/export" className="inline-flex rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-700">
+                匯出調查結果 Excel
+              </a>
             </div>
-          </div>
-          <div className="flex flex-1 justify-end">
             <a href="/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
               員工調查表
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
