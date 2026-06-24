@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { getEmployees } from "../../../../src/data/employees";
 import { clientKey, rateLimit } from "../../../../src/lib/rateLimit";
 import { sendMail } from "../../../../src/lib/mailer";
 import { supabase } from "../../../../src/lib/supabase";
@@ -35,8 +34,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "請輸入員工工號" }, { status: 400 });
   }
 
-  const employees = await getEmployees();
-  const employee = employees.find((e) => e.employeeId.toUpperCase() === employeeId);
+  const { data: empRow } = await supabase
+    .from("employees")
+    .select("employee_id, name, department, email")
+    .eq("employee_id", employeeId)
+    .maybeSingle();
+  const employee = empRow
+    ? { employeeId: empRow.employee_id, name: empRow.name, department: empRow.department, email: empRow.email || undefined }
+    : null;
 
   if (!employee) {
     return NextResponse.json(

@@ -10,7 +10,8 @@ export type Employee = {
 export async function getEmployees(): Promise<Employee[]> {
   const { data, error } = await supabase
     .from("employees")
-    .select("employee_id, name, department, email");
+    .select("employee_id, name, department, email")
+    .limit(10000);
 
   if (error) throw new Error(error.message);
 

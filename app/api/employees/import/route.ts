@@ -44,20 +44,32 @@ export async function POST(request: Request) {
     );
   }
 
-  const upsertRows = result.employees.map((emp) => ({
+  const insertRows = result.employees.map((emp) => ({
     employee_id: emp.employeeId,
     name: emp.name,
     department: emp.department,
     email: emp.email ?? null,
   }));
 
-  const { error } = await supabase
+  const { error: deleteError } = await supabase
     .from("employees")
-    .upsert(upsertRows, { onConflict: "employee_id" });
+    .delete()
+    .neq("employee_id", "");
 
-  if (error) {
+  if (deleteError) {
     return NextResponse.json(
-      { ok: false, error: "資料庫寫入失敗：" + error.message },
+      { ok: false, error: "清除舊資料失敗：" + deleteError.message },
+      { status: 500 },
+    );
+  }
+
+  const { error: insertError } = await supabase
+    .from("employees")
+    .insert(insertRows);
+
+  if (insertError) {
+    return NextResponse.json(
+      { ok: false, error: "資料庫寫入失敗：" + insertError.message },
       { status: 500 },
     );
   }

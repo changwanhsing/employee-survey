@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getEmployees } from "../../../src/data/employees";
 import { clientKey, rateLimit } from "../../../src/lib/rateLimit";
+import { supabase } from "../../../src/lib/supabase";
 
 export async function POST(request: Request) {
   const limit = rateLimit(clientKey(request, "employee-lookup"), 10, 60_000);
@@ -14,10 +14,14 @@ export async function POST(request: Request) {
   const body = await request.json();
   const employeeId = String(body.employeeId || "").trim().toUpperCase();
   const name = String(body.name || "").trim();
-  const employees = await getEmployees();
-  const employee = employees.find(
-    (item) => item.employeeId.toUpperCase() === employeeId,
-  );
+  const { data: empRow } = await supabase
+    .from("employees")
+    .select("employee_id, name, department, email")
+    .eq("employee_id", employeeId)
+    .maybeSingle();
+  const employee = empRow
+    ? { employeeId: empRow.employee_id, name: empRow.name, department: empRow.department, email: empRow.email || undefined }
+    : null;
 
   if (!employee || employee.name !== name) {
     return NextResponse.json(
