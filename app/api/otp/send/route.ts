@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { clientKey, rateLimit } from "../../../../src/lib/rateLimit";
 import { sendMail } from "../../../../src/lib/mailer";
 import { supabase } from "../../../../src/lib/supabase";
+import { getSurveyConfig } from "../../../../src/lib/surveyConfig";
 
 const OTP_TTL_MS = 10 * 60 * 1000; // 10 minutes
 const OTP_RESEND_COOLDOWN_MS = 60 * 1000; // 1 minute
@@ -34,12 +35,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "請輸入員工工號" }, { status: 400 });
   }
 
-  const { data: surveyRow } = await supabase
-    .from("survey_config")
-    .select("title")
-    .eq("is_active", true)
-    .maybeSingle();
-  const surveyTitle = surveyRow?.title || "員工調查";
+  const surveyConfig = await getSurveyConfig();
+  const surveyTitle = surveyConfig.title || "員工調查";
 
   const { data: empRow } = await supabase
     .from("employees")
