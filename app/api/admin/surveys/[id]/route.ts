@@ -24,6 +24,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         description: String(item.description ?? "").trim(),
         maxQuantity: Math.max(1, Math.trunc(Number(item.maxQuantity) || 5)),
         ...(item.imageUrl ? { imageUrl: String(item.imageUrl) } : {}),
+        ...(item.selectionType === "single" || item.selectionType === "multiple"
+          ? { selectionType: item.selectionType }
+          : {}),
       }))
       .filter((item) => item.id && item.name);
   }
