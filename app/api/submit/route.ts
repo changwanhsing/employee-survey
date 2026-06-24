@@ -28,7 +28,7 @@ function renderConfirmationEmail(
       <h2>${surveyTitle} — 送出確認</h2>
       <p>${name}（${department}）您好，我們已收到您的選擇：</p>
       ${listHtml}
-      <p><a href="${process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000"}" style="display:inline-block;margin-top:8px;padding:10px 20px;background:#0f172a;color:#fff;text-decoration:none;border-radius:8px;font-size:14px;font-weight:600;">重新填寫調查表</a></p>
+      <p><a href="${process.env.NEXT_PUBLIC_BASE_URL ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000")}" style="display:inline-block;margin-top:8px;padding:10px 20px;background:#0f172a;color:#fff;text-decoration:none;border-radius:8px;font-size:14px;font-weight:600;">重新填寫調查表</a></p>
       <p style="color:#64748b; font-size:13px;">如需修改，請於收件截止前點上方連結重新登入調整。此信為系統自動發送，請勿直接回覆。</p>
     </div>
   `;
