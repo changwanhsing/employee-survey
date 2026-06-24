@@ -34,6 +34,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "請輸入員工工號" }, { status: 400 });
   }
 
+  const { data: surveyRow } = await supabase
+    .from("surveys")
+    .select("title")
+    .eq("is_active", true)
+    .maybeSingle();
+  const surveyTitle = surveyRow?.title || "員工調查";
+
   const { data: empRow } = await supabase
     .from("employees")
     .select("employee_id, name, department, email")
@@ -94,7 +101,7 @@ export async function POST(request: Request) {
 
   await sendMail({
     to: employee.email,
-    subject: "中秋月餅調查 — 驗證碼",
+    subject: `${surveyTitle} — 驗證碼`,
     html: `
       <div style="font-family: sans-serif; line-height: 1.6; color: #0f172a;">
         <h2>您的驗證碼</h2>
