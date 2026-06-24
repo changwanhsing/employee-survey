@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { ChangeEvent, useCallback, useEffect, useState } from "react";
 import type { SurveyConfig, SurveyItem, SurveyMeta } from "@/src/lib/surveyConfig";
 
 type Submission = {
