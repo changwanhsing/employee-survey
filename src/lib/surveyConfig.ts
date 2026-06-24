@@ -38,7 +38,22 @@ export async function getSurveyConfig(): Promise<SurveyConfig> {
     .limit(1)
     .single();
 
-  if (error || !data) return DEFAULT_CONFIG;
+  if (error || !data) {
+    // fallback without selection_type (column may not exist yet)
+    const { data: data2, error: error2 } = await supabase
+      .from("survey_config")
+      .select("title, items, deadline")
+      .eq("is_active", true)
+      .limit(1)
+      .single();
+    if (error2 || !data2) return DEFAULT_CONFIG;
+    return {
+      title: typeof data2.title === "string" ? data2.title : DEFAULT_CONFIG.title,
+      items: Array.isArray(data2.items) ? (data2.items as SurveyItem[]) : [],
+      deadline: data2.deadline ?? null,
+      selectionType: "multiple",
+    };
+  }
 
   return {
     title: typeof data.title === "string" ? data.title : DEFAULT_CONFIG.title,
@@ -76,7 +91,22 @@ export async function getSurveyById(
     .eq("id", id)
     .single();
 
-  if (error || !data) return null;
+  if (error || !data) {
+    // fallback without selection_type
+    const { data: data2, error: error2 } = await supabase
+      .from("survey_config")
+      .select("survey_name, title, items, deadline")
+      .eq("id", id)
+      .single();
+    if (error2 || !data2) return null;
+    return {
+      surveyName: data2.survey_name ?? "",
+      title: data2.title ?? "",
+      items: Array.isArray(data2.items) ? (data2.items as SurveyItem[]) : [],
+      deadline: data2.deadline ?? null,
+      selectionType: "multiple",
+    };
+  }
 
   return {
     surveyName: data.survey_name ?? "",
