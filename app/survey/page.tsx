@@ -276,30 +276,44 @@ export default function SurveyPage() {
                         <p className="mt-2 text-sm text-slate-600">{item.description}</p>
                       )}
                     </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="inline-flex items-center rounded-2xl border border-zinc-200 bg-zinc-100 p-1">
-                        <button
-                          type="button"
-                          className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-xl font-semibold text-slate-900 transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40"
-                          onClick={() => handleQuantityChange(item.id, -1)}
-                          disabled={(quantities[item.id] ?? 0) <= 0}
-                        >
-                          -
-                        </button>
-                        <span className="mx-4 min-w-[2rem] text-center text-lg font-semibold text-slate-900">
-                          {quantities[item.id] ?? 0}
-                        </span>
-                        <button
-                          type="button"
-                          className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-xl font-semibold text-slate-900 transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40"
-                          onClick={() => handleQuantityChange(item.id, 1)}
-                          disabled={(quantities[item.id] ?? 0) >= item.maxQuantity}
-                        >
-                          +
-                        </button>
+                    {(item.selectionType ?? "multiple") === "single" ? (
+                      <button
+                        type="button"
+                        onClick={() => setQuantities((q) => ({ ...q, [item.id]: q[item.id] ? 0 : 1 }))}
+                        className={`w-full rounded-2xl border-2 py-3 text-base font-semibold transition ${
+                          (quantities[item.id] ?? 0) > 0
+                            ? "border-slate-900 bg-slate-900 text-white"
+                            : "border-zinc-300 bg-white text-slate-700 hover:bg-zinc-50"
+                        }`}
+                      >
+                        {(quantities[item.id] ?? 0) > 0 ? "✓ 已選擇" : "點選選取"}
+                      </button>
+                    ) : (
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="inline-flex items-center rounded-2xl border border-zinc-200 bg-zinc-100 p-1">
+                          <button
+                            type="button"
+                            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-xl font-semibold text-slate-900 transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40"
+                            onClick={() => handleQuantityChange(item.id, -1)}
+                            disabled={(quantities[item.id] ?? 0) <= 0}
+                          >
+                            -
+                          </button>
+                          <span className="mx-4 min-w-[2rem] text-center text-lg font-semibold text-slate-900">
+                            {quantities[item.id] ?? 0}
+                          </span>
+                          <button
+                            type="button"
+                            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-xl font-semibold text-slate-900 transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40"
+                            onClick={() => handleQuantityChange(item.id, 1)}
+                            disabled={(quantities[item.id] ?? 0) >= item.maxQuantity}
+                          >
+                            +
+                          </button>
+                        </div>
+                        <span className="text-sm text-slate-500">最多 {item.maxQuantity} 個</span>
                       </div>
-                      <span className="text-sm text-slate-500">最多 {item.maxQuantity} 個</span>
-                    </div>
+                    )}
                   </div>
                 ))}
               </div>

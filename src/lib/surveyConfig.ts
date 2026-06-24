@@ -6,6 +6,7 @@ export type SurveyItem = {
   description: string;
   maxQuantity: number;
   imageUrl?: string;
+  selectionType?: "single" | "multiple";
 };
 
 export type SurveyConfig = {

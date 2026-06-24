@@ -420,6 +420,25 @@ function SurveyConfigEditor({
                     />
                   </div>
                   <div>
+                    <label className="mb-1 block text-xs font-medium text-slate-600">選擇方式</label>
+                    <div className="flex gap-2">
+                      {(["single", "multiple"] as const).map((type) => (
+                        <button
+                          key={type}
+                          type="button"
+                          onClick={() => updateItem(index, "selectionType", type)}
+                          className={`flex-1 rounded-xl border px-3 py-2 text-sm font-medium transition ${
+                            (item.selectionType ?? "multiple") === type
+                              ? "border-slate-900 bg-slate-900 text-white"
+                              : "border-zinc-300 bg-white text-slate-700 hover:bg-zinc-50"
+                          }`}
+                        >
+                          {type === "single" ? "單選" : "複選"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
                     <label className="mb-1 block text-xs font-medium text-slate-600">最大數量</label>
                     <input
                       type="number"
@@ -427,7 +446,8 @@ function SurveyConfigEditor({
                       max={99}
                       value={item.maxQuantity}
                       onChange={(e) => updateItem(index, "maxQuantity", Math.max(1, parseInt(e.target.value) || 1))}
-                      className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                      disabled={(item.selectionType ?? "multiple") === "single"}
+                      className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200 disabled:opacity-40"
                     />
                   </div>
                   <div className="sm:col-span-2">
