@@ -1,6 +1,11 @@
 "use client";
 
 import { ChangeEvent, useCallback, useEffect, useState } from "react";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  PieChart, Pie, Cell,
+  LineChart, Line,
+} from "recharts";
 import type { SurveyConfig, SurveyItem, SurveyMeta } from "@/src/lib/surveyConfig";
 
 type Submission = {
@@ -835,6 +840,122 @@ const [editingSurveyId, setEditingSurveyId] = useState<string | null>(null);
                 </div>
               </div>
             )}
+
+            {/* ── 圖表分析區 ── */}
+            {submissions.length > 0 && (() => {
+              const COLORS = ["#6366f1","#22d3ee","#f59e0b","#10b981","#f43f5e","#a78bfa","#fb923c","#34d399"];
+
+              // 1. 各品項選擇總數（橫條圖）
+              const itemBarData = totals.map(({ item, total }) => ({ name: item.name, 數量: total }));
+
+              // 2. 回收率（環圖）
+              const submitted = submittedIds.size;
+              const unsubmittedCount = employees.length - submitted;
+              const pieData = [
+                { name: "已送出", value: submitted },
+                { name: "未送出", value: unsubmittedCount },
+              ];
+
+              // 3. 每日送出趨勢（折線圖）
+              const dailyMap: Record<string, number> = {};
+              for (const s of submissions) {
+                const day = s.submittedAt.slice(0, 10);
+                dailyMap[day] = (dailyMap[day] ?? 0) + 1;
+              }
+              const lineData = Object.entries(dailyMap)
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([date, count]) => ({ date, 送出人數: count }));
+
+              // 4. 部門 × 品項 堆疊長條圖
+              const stackedData = departments.map((dept) => {
+                const row: Record<string, string | number> = { dept };
+                for (const item of surveyItems) row[item.name] = crossTab[dept]?.[item.id] ?? 0;
+                return row;
+              });
+
+              return (
+                <>
+                  {/* 各品項選擇總數 */}
+                  {itemBarData.length > 0 && (
+                    <div className="mb-8 rounded-3xl border border-zinc-200 bg-white p-5 sm:p-6 shadow-sm shadow-zinc-200/50">
+                      <h2 className="mb-4 text-lg font-semibold text-slate-900">各品項選擇總數</h2>
+                      <ResponsiveContainer width="100%" height={240}>
+                        <BarChart data={itemBarData} layout="vertical" margin={{ left: 16, right: 24, top: 4, bottom: 4 }}>
+                          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e4e4e7" />
+                          <XAxis type="number" tick={{ fontSize: 12, fill: "#71717a" }} allowDecimals={false} />
+                          <YAxis type="category" dataKey="name" width={80} tick={{ fontSize: 12, fill: "#3f3f46" }} />
+                          <Tooltip cursor={{ fill: "#f4f4f5" }} contentStyle={{ borderRadius: 12, border: "1px solid #e4e4e7", fontSize: 13 }} />
+                          <Bar dataKey="數量" radius={[0, 6, 6, 0]}>
+                            {itemBarData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+
+                  {/* 回收率環圖 */}
+                  <div className="mb-8 rounded-3xl border border-zinc-200 bg-white p-5 sm:p-6 shadow-sm shadow-zinc-200/50">
+                    <h2 className="mb-4 text-lg font-semibold text-slate-900">整體回收率</h2>
+                    <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:gap-8">
+                      <ResponsiveContainer width={200} height={200}>
+                        <PieChart>
+                          <Pie data={pieData} cx="50%" cy="50%" innerRadius={55} outerRadius={85} dataKey="value" paddingAngle={3}>
+                            <Cell fill="#10b981" />
+                            <Cell fill="#e4e4e7" />
+                          </Pie>
+                          <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #e4e4e7", fontSize: 13 }} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div className="flex flex-col gap-3">
+                        <div className="flex items-center gap-2">
+                          <span className="h-3 w-3 rounded-full bg-emerald-500 inline-block" />
+                          <span className="text-sm text-slate-700">已送出：<strong>{submitted} 人</strong>（{employees.length > 0 ? Math.round(submitted / employees.length * 100) : 0}%）</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="h-3 w-3 rounded-full bg-zinc-200 inline-block" />
+                          <span className="text-sm text-slate-700">未送出：<strong>{unsubmittedCount} 人</strong></span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 每日送出趨勢 */}
+                  {lineData.length > 1 && (
+                    <div className="mb-8 rounded-3xl border border-zinc-200 bg-white p-5 sm:p-6 shadow-sm shadow-zinc-200/50">
+                      <h2 className="mb-4 text-lg font-semibold text-slate-900">每日送出趨勢</h2>
+                      <ResponsiveContainer width="100%" height={220}>
+                        <LineChart data={lineData} margin={{ left: 0, right: 16, top: 4, bottom: 4 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" />
+                          <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#71717a" }} />
+                          <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: "#71717a" }} />
+                          <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #e4e4e7", fontSize: 13 }} />
+                          <Line type="monotone" dataKey="送出人數" stroke="#6366f1" strokeWidth={2} dot={{ r: 4, fill: "#6366f1" }} activeDot={{ r: 6 }} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+
+                  {/* 部門 × 品項 堆疊長條圖 */}
+                  {surveyItems.length > 0 && departments.length > 0 && (
+                    <div className="mb-8 rounded-3xl border border-zinc-200 bg-white p-5 sm:p-6 shadow-sm shadow-zinc-200/50">
+                      <h2 className="mb-4 text-lg font-semibold text-slate-900">各部門品項選擇分佈</h2>
+                      <ResponsiveContainer width="100%" height={280}>
+                        <BarChart data={stackedData} margin={{ left: 0, right: 16, top: 4, bottom: 40 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" />
+                          <XAxis dataKey="dept" tick={{ fontSize: 11, fill: "#3f3f46" }} angle={-25} textAnchor="end" interval={0} />
+                          <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: "#71717a" }} />
+                          <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #e4e4e7", fontSize: 13 }} />
+                          <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
+                          {surveyItems.map((item, i) => (
+                            <Bar key={item.id} dataKey={item.name} stackId="a" fill={COLORS[i % COLORS.length]} radius={i === surveyItems.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]} />
+                          ))}
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
 
             <div className="mb-8 rounded-3xl border border-zinc-200 bg-white p-5 sm:p-6 shadow-sm shadow-zinc-200/50">
               <h2 className="mb-4 text-lg font-semibold text-slate-900">
