@@ -2,6 +2,7 @@
 
 import { ChangeEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import * as XLSX from "xlsx";
 
 type Employee = {
   employeeId: string;
@@ -106,6 +107,18 @@ export default function EmployeesPage() {
     }
   }
 
+  function handleDownloadTemplate() {
+    const ws = XLSX.utils.aoa_to_sheet([
+      ["工號", "姓名", "部門", "Email"],
+      ["10001", "王小明", "業務部", "ming@company.com"],
+      ["10002", "陳大華", "人事部", "hua@company.com"],
+    ]);
+    ws["!cols"] = [{ wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 24 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "員工名冊");
+    XLSX.writeFile(wb, "員工名冊匯入範本.xlsx");
+  }
+
   async function handleImport(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -146,6 +159,13 @@ export default function EmployeesPage() {
             <h1 className="mt-1 text-3xl font-bold text-slate-900">員工名冊</h1>
           </div>
           <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleDownloadTemplate}
+              className="inline-flex items-center gap-1.5 rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+              下載範本
+            </button>
             <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
               {importing ? "匯入中..." : "匯入 Excel"}
               <input type="file" accept=".xlsx,.xls,.csv" className="hidden" disabled={importing} onChange={handleImport} />
