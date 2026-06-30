@@ -208,18 +208,20 @@ export default function EmployeesPage() {
 
       <main className="mx-auto min-h-screen max-w-5xl px-4 py-8 sm:px-5 sm:py-10">
         {/* Header */}
-        <div className="mb-8 flex items-center justify-between">
-          <Link
-            href="/admin"
-            className="inline-flex items-center gap-1.5 rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-          >
-            ← 返回管理後台
-          </Link>
-          <div className="text-center">
-            <p className="text-sm font-semibold uppercase tracking-[0.3em] text-zinc-500">調查系統</p>
-            <h1 className="mt-1 text-3xl font-bold text-slate-900">員工名冊</h1>
+        <div className="mb-8">
+          <div className="mb-4 flex items-center justify-between">
+            <Link
+              href="/admin"
+              className="inline-flex items-center gap-1.5 rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+              ← 返回管理後台
+            </Link>
+            <div className="text-right">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">調查系統</p>
+              <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">員工名冊</h1>
+            </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={handleDownloadTemplate}
