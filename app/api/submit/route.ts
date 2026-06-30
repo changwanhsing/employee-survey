@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { getSurveyConfig, isConfigDeadlinePassed } from "../../../src/lib/surveyConfig";
 import { isDeadlinePassed } from "../../../src/config/deadline";
 import { getEmployees } from "../../../src/data/employees";
 import { clientKey, rateLimit } from "../../../src/lib/rateLimit";
 import { sendMail } from "../../../src/lib/mailer";
 import { supabase } from "../../../src/lib/supabase";
+import { verifySession, SESSION_COOKIE } from "../../../src/lib/session";
 
 function renderConfirmationEmail(
   name: string,
@@ -43,6 +45,16 @@ export async function POST(request: Request) {
     );
   }
 
+  const cookieStore = await cookies();
+  const sessionToken = cookieStore.get(SESSION_COOKIE)?.value;
+  const session = sessionToken ? await verifySession(sessionToken) : null;
+  if (!session) {
+    return NextResponse.json(
+      { ok: false, error: "請先完成身分驗證" },
+      { status: 401 },
+    );
+  }
+
   const config = await getSurveyConfig();
 
   const deadlinePassed = config.deadline
@@ -57,25 +69,26 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const employeeId = String(body.employeeId || "").trim().toUpperCase();
-  const name = String(body.name || "").trim();
   const quantities = body.quantities as Record<string, number> | undefined;
 
-  if (!employeeId || !name || !quantities) {
+  if (!quantities) {
     return NextResponse.json(
       { ok: false, error: "缺少必要欄位" },
       { status: 400 },
     );
   }
 
+  // Use identity from verified session — do not trust request body for employeeId/name
+  const employeeId = session.employeeId.toUpperCase();
+
   const employees = await getEmployees();
   const employee = employees.find(
-    (item) => item.employeeId.toUpperCase() === employeeId && item.name === name,
+    (item) => item.employeeId.toUpperCase() === employeeId,
   );
 
   if (!employee) {
     return NextResponse.json(
-      { ok: false, error: "工號或姓名不正確，無法送出" },
+      { ok: false, error: "員工資料不存在，無法送出" },
       { status: 403 },
     );
   }

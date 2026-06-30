@@ -7,7 +7,7 @@ export type SessionPayload = {
 };
 
 const SESSION_COOKIE = "survey_session";
-const SESSION_TTL_SECONDS = 300; // 5 minutes
+const SESSION_TTL_SECONDS = 1800; // 30 minutes
 
 function getSecret() {
   const secret = process.env.SESSION_SECRET;
