@@ -1,57 +1,52 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifySession, SESSION_COOKIE } from "./src/lib/session";
+import { jwtVerify } from "jose";
 
-const ADMIN_USER = process.env.ADMIN_USER || "admin";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "changeme";
+const ADMIN_SESSION_COOKIE = "admin_session";
 
-function unauthorized() {
-  return new NextResponse("請輸入管理者帳號密碼", {
-    status: 401,
-    headers: { "WWW-Authenticate": 'Basic realm="Admin"' },
-  });
+async function verifyAdminToken(token: string): Promise<boolean> {
+  const raw = process.env.ADMIN_SECRET ?? process.env.SESSION_SECRET;
+  if (!raw) return false;
+  try {
+    await jwtVerify(token, new TextEncoder().encode(raw));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Protect /survey with session cookie
-  if (pathname === "/survey") {
-    const token = request.cookies.get(SESSION_COOKIE)?.value;
-    if (!token) return NextResponse.redirect(new URL("/", request.url));
-    const session = await verifySession(token);
-    if (!session) return NextResponse.redirect(new URL("/", request.url));
+  const isAdminPage =
+    pathname.startsWith("/admin") && pathname !== "/admin/login";
+  const isAdminApi =
+    pathname.startsWith("/api/admin") ||
+    pathname.startsWith("/api/employees") ||
+    pathname === "/api/submit/export" ||
+    (pathname === "/api/submit" && request.method === "GET") ||
+    pathname === "/api/survey-config/upload-image";
+
+  if (!isAdminPage && !isAdminApi) return NextResponse.next();
+
+  const token = request.cookies.get(ADMIN_SESSION_COOKIE)?.value;
+  if (token && (await verifyAdminToken(token))) {
     return NextResponse.next();
   }
 
-  // Admin routes: Basic Auth
-  if (pathname === "/api/submit" && request.method !== "GET") {
-    return NextResponse.next();
+  if (isAdminPage) {
+    return NextResponse.redirect(new URL("/admin/login", request.url));
   }
 
-  const authHeader = request.headers.get("authorization");
-  if (!authHeader?.startsWith("Basic ")) {
-    return unauthorized();
-  }
-
-  const decoded = Buffer.from(authHeader.slice(6), "base64").toString("utf-8");
-  const separatorIndex = decoded.indexOf(":");
-  const user = decoded.slice(0, separatorIndex);
-  const password = decoded.slice(separatorIndex + 1);
-
-  if (user !== ADMIN_USER || password !== ADMIN_PASSWORD) {
-    return unauthorized();
-  }
-
-  return NextResponse.next();
+  return NextResponse.json({ error: "未授權，請先登入後台" }, { status: 401 });
 }
 
 export const config = {
   matcher: [
-    "/survey",
-    "/admin",
+    "/admin/:path*",
+    "/api/admin/:path*",
+    "/api/employees/:path*",
     "/api/submit",
     "/api/submit/export",
-    "/api/employees",
-    "/api/employees/import",
+    "/api/survey-config/upload-image",
   ],
 };
