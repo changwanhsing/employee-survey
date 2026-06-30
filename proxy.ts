@@ -20,7 +20,7 @@ export async function proxy(request: NextRequest) {
   const isAdminPage =
     pathname.startsWith("/admin") && pathname !== "/admin/login";
   const isAdminApi =
-    pathname.startsWith("/api/admin") ||
+    (pathname.startsWith("/api/admin") && pathname !== "/api/admin/login" && pathname !== "/api/admin/logout") ||
     pathname.startsWith("/api/employees") ||
     pathname === "/api/submit/export" ||
     (pathname === "/api/submit" && request.method === "GET") ||
