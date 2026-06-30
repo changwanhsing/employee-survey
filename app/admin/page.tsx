@@ -523,12 +523,14 @@ function SurveyList({
   onActivate,
   onDelete,
   onCreate,
+  onDuplicate,
 }: {
   surveys: SurveyMeta[];
   onEdit: (id: string) => void;
   onActivate: (id: string) => void;
   onDelete: (id: string) => void;
   onCreate: (name: string) => void;
+  onDuplicate: (id: string) => void;
 }) {
   const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
@@ -618,6 +620,13 @@ function SurveyList({
                 >
                   編輯
                 </button>
+                <button
+                  type="button"
+                  onClick={() => onDuplicate(survey.id)}
+                  className="rounded-xl border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-zinc-50"
+                >
+                  複製
+                </button>
                 {!survey.isActive && (
                   <button
                     type="button"
@@ -630,11 +639,7 @@ function SurveyList({
                 {!survey.isActive && (
                   <button
                     type="button"
-                    onClick={() => {
-                      if (confirm(`確定要刪除「${survey.surveyName || survey.title}」嗎？`)) {
-                        onDelete(survey.id);
-                      }
-                    }}
+                    onClick={() => onDelete(survey.id)}
                     className="rounded-xl border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-500 transition hover:bg-red-50"
                   >
                     刪除
@@ -657,9 +662,14 @@ export default function AdminPage() {
   const [surveys, setSurveys] = useState<SurveyMeta[]>([]);
   const [activeSurveyItems, setActiveSurveyItems] = useState<SurveyItem[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"surveys" | "stats" | "records">("surveys");
   const [query, setQuery] = useState("");
-const [editingSurveyId, setEditingSurveyId] = useState<string | null>(null);
+  const [submissionsPage, setSubmissionsPage] = useState(1);
+  const SUBMISSIONS_PER_PAGE = 50;
+  const [editingSurveyId, setEditingSurveyId] = useState<string | null>(null);
   const [editingConfig, setEditingConfig] = useState<(SurveyConfig & { surveyName: string }) | null>(null);
+  const [deletingSurvey, setDeletingSurvey] = useState<{ id: string; name: string } | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   const loadSurveys = useCallback(async () => {
     const res = await fetch("/api/admin/surveys");
@@ -704,8 +714,24 @@ const [editingSurveyId, setEditingSurveyId] = useState<string | null>(null);
   }
 
   async function handleDelete(id: string) {
-    await fetch(`/api/admin/surveys/${id}`, { method: "DELETE" });
+    const survey = surveys.find((s) => s.id === id);
+    setDeletingSurvey({ id, name: survey?.surveyName || survey?.title || id });
+  }
+
+  async function confirmDeleteSurvey() {
+    if (!deletingSurvey) return;
+    await fetch(`/api/admin/surveys/${deletingSurvey.id}`, { method: "DELETE" });
+    setDeletingSurvey(null);
     await loadSurveys();
+  }
+
+  async function handleDuplicate(id: string) {
+    const res = await fetch(`/api/admin/surveys/${id}/duplicate`, { method: "POST" });
+    const data = await res.json();
+    if (data.ok) {
+      await loadSurveys();
+      await handleEdit(data.id);
+    }
   }
 
   async function handleCreate(surveyName: string) {
@@ -771,8 +797,33 @@ const [editingSurveyId, setEditingSurveyId] = useState<string | null>(null);
     })
     .sort((a, b) => b.submittedAt.localeCompare(a.submittedAt));
 
+  const totalSubmissionPages = Math.max(1, Math.ceil(filteredSubmissions.length / SUBMISSIONS_PER_PAGE));
+  const pagedSubmissions = filteredSubmissions.slice(
+    (submissionsPage - 1) * SUBMISSIONS_PER_PAGE,
+    submissionsPage * SUBMISSIONS_PER_PAGE,
+  );
+
   return (
     <div className="min-h-screen bg-zinc-50 text-slate-900">
+      {/* 刪除活動確認 Dialog */}
+      {deletingSurvey && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-3xl border border-zinc-200 bg-white p-6 shadow-xl">
+            <h3 className="mb-2 text-lg font-bold text-slate-900">確認刪除活動？</h3>
+            <p className="mb-5 text-sm text-slate-600">
+              即將刪除 <span className="font-semibold text-slate-900">「{deletingSurvey.name}」</span>，此操作無法還原。
+            </p>
+            <div className="flex gap-3">
+              <button type="button" onClick={confirmDeleteSurvey} className="flex-1 rounded-2xl bg-red-600 py-3 text-base font-semibold text-white transition hover:bg-red-700">
+                確認刪除
+              </button>
+              <button type="button" onClick={() => setDeletingSurvey(null)} className="flex-1 rounded-2xl border border-zinc-300 bg-white py-3 text-base font-medium text-slate-700 transition hover:bg-zinc-50">
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <main className="mx-auto min-h-screen max-w-4xl px-4 py-8 sm:px-5 sm:py-10">
         <div className="mb-8">
           <h1 className="text-3xl font-bold leading-tight text-slate-900 text-center">員工調查系統後台管理</h1>
@@ -781,12 +832,39 @@ const [editingSurveyId, setEditingSurveyId] = useState<string | null>(null);
               <a href="/admin/employees" className="inline-flex rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
                 員工名冊
               </a>
-<a href="/admin/unsubmitted" target="_blank" rel="noopener noreferrer" className="inline-flex rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
+<a href="/admin/unsubmitted" className="inline-flex rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
                 未送出名單
               </a>
-              <a href="/api/submit/export" className="inline-flex rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-700">
-                匯出調查結果 Excel
-              </a>
+              <button
+                type="button"
+                disabled={exporting}
+                onClick={async () => {
+                  setExporting(true);
+                  try {
+                    const res = await fetch("/api/submit/export");
+                    const blob = await res.blob();
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = res.headers.get("content-disposition")?.match(/filename="?([^"]+)"?/)?.[1] ?? "export.xlsx";
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  } finally {
+                    setExporting(false);
+                  }
+                }}
+                className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {exporting ? (
+                  <>
+                    <svg className="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    匯出中...
+                  </>
+                ) : "匯出調查結果 Excel"}
+              </button>
             </div>
             <div className="flex items-center gap-2">
               <a href="/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
@@ -815,31 +893,58 @@ const [editingSurveyId, setEditingSurveyId] = useState<string | null>(null);
           </div>
         )}
 
-        {/* 活動管理 */}
-        {editingSurveyId && editingConfig ? (
-          <SurveyConfigEditor
-            surveyId={editingSurveyId}
-            initial={editingConfig}
-            onSaved={() => { loadData(); }}
-            onBack={() => { setEditingSurveyId(null); setEditingConfig(null); }}
-          />
-        ) : (
-          <SurveyList
-            surveys={surveys}
-            onEdit={handleEdit}
-            onActivate={handleActivate}
-            onDelete={handleDelete}
-            onCreate={handleCreate}
-          />
+        {/* Tab 導覽 */}
+        {!editingSurveyId && (
+          <div className="mb-6 flex gap-1 rounded-2xl border border-zinc-200 bg-white p-1 shadow-sm">
+            {([
+              { key: "surveys", label: "活動管理" },
+              { key: "stats",   label: "統計圖表" },
+              { key: "records", label: "填答紀錄" },
+            ] as const).map(({ key, label }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setActiveTab(key)}
+                className={`flex-1 rounded-xl py-2.5 text-sm font-semibold transition ${
+                  activeTab === key
+                    ? "bg-slate-900 text-white shadow-sm"
+                    : "text-slate-500 hover:bg-zinc-50 hover:text-slate-700"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         )}
 
-        {!error && (submissions === null || employees === null) && (
+        {/* 活動管理 tab */}
+        {(activeTab === "surveys" || editingSurveyId) && (
+          editingSurveyId && editingConfig ? (
+            <SurveyConfigEditor
+              surveyId={editingSurveyId}
+              initial={editingConfig}
+              onSaved={() => { loadData(); }}
+              onBack={() => { setEditingSurveyId(null); setEditingConfig(null); }}
+            />
+          ) : (
+            <SurveyList
+              surveys={surveys}
+              onEdit={handleEdit}
+              onActivate={handleActivate}
+              onDelete={handleDelete}
+              onCreate={handleCreate}
+              onDuplicate={handleDuplicate}
+            />
+          )
+        )}
+
+        {!error && (submissions === null || employees === null) && activeTab !== "surveys" && (
           <p className="text-center text-slate-600">載入中...</p>
         )}
 
         {submissions !== null && employees !== null && (
           <>
-            {surveyItems.length > 0 && (
+            {activeTab === "stats" && surveyItems.length > 0 && (
               <div className="mb-8 rounded-3xl border border-zinc-200 bg-white p-5 sm:p-6 shadow-sm shadow-zinc-200/50">
                 <h2 className="mb-4 text-lg font-semibold text-slate-900">品項總計（共 {submissions.length} 人送出）</h2>
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
@@ -853,8 +958,19 @@ const [editingSurveyId, setEditingSurveyId] = useState<string | null>(null);
               </div>
             )}
 
+            {/* stats tab 無資料空白狀態 */}
+            {activeTab === "stats" && submissions.length === 0 && (
+              <div className="flex flex-col items-center gap-3 rounded-3xl border border-dashed border-zinc-300 bg-white py-16 text-center">
+                <svg className="h-12 w-12 text-zinc-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.5l5-5 4 4 5-6 4 3" />
+                </svg>
+                <p className="text-base font-semibold text-slate-400">尚無填答資料</p>
+                <p className="text-sm text-slate-400">員工開始送出後，圖表將自動顯示。</p>
+              </div>
+            )}
+
             {/* ── 圖表分析區 ── */}
-            {submissions.length > 0 && (() => {
+            {activeTab === "stats" && submissions.length > 0 && (() => {
               const COLORS = ["#6366f1","#22d3ee","#f59e0b","#10b981","#f43f5e","#a78bfa","#fb923c","#34d399"];
 
               // 1. 各品項選擇總數（橫條圖）
@@ -969,7 +1085,7 @@ const [editingSurveyId, setEditingSurveyId] = useState<string | null>(null);
               );
             })()}
 
-            <div className="mb-8 rounded-3xl border border-zinc-200 bg-white p-5 sm:p-6 shadow-sm shadow-zinc-200/50">
+            {activeTab === "stats" && <div className="mb-8 rounded-3xl border border-zinc-200 bg-white p-5 sm:p-6 shadow-sm shadow-zinc-200/50">
               <h2 className="mb-4 text-lg font-semibold text-slate-900">
                 各部門送出進度（共 {employees.length} 人，已送出 {submittedIds.size} 人）
               </h2>
@@ -989,9 +1105,9 @@ const [editingSurveyId, setEditingSurveyId] = useState<string | null>(null);
                   );
                 })}
               </div>
-            </div>
+            </div>}
 
-            {surveyItems.length > 0 && (
+            {activeTab === "stats" && surveyItems.length > 0 && (
               <div className="mb-8 overflow-x-auto rounded-3xl border border-zinc-200 bg-white p-5 sm:p-6 shadow-sm shadow-zinc-200/50">
                 <h2 className="mb-4 text-lg font-semibold text-slate-900">品項 × 部門 數量統計</h2>
                 <table className="w-full min-w-[640px] text-right text-sm">
@@ -1031,17 +1147,17 @@ const [editingSurveyId, setEditingSurveyId] = useState<string | null>(null);
               </div>
             )}
 
-            <div className="mb-4">
+            {activeTab === "records" && <div className="mb-4">
               <input
                 type="text"
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => { setQuery(e.target.value); setSubmissionsPage(1); }}
                 placeholder="搜尋工號、姓名或部門"
                 className="w-full rounded-2xl border border-zinc-300 bg-white px-4 py-3 text-base text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
               />
-            </div>
+            </div>}
 
-            <div className="overflow-x-auto rounded-3xl border border-zinc-200 bg-white shadow-sm shadow-zinc-200/50">
+            {activeTab === "records" && <div className="overflow-x-auto rounded-3xl border border-zinc-200 bg-white shadow-sm shadow-zinc-200/50">
               <table className="w-full min-w-[640px] text-left text-sm">
                 <thead className="bg-zinc-100 text-slate-700">
                   <tr>
@@ -1060,7 +1176,7 @@ const [editingSurveyId, setEditingSurveyId] = useState<string | null>(null);
                       </td>
                     </tr>
                   ) : (
-                    filteredSubmissions.map((submission) => (
+                    pagedSubmissions.map((submission) => (
                       <tr key={submission.employeeId} className="border-t border-zinc-100">
                         <td className="px-4 py-3 font-medium text-slate-900">{submission.employeeId}</td>
                         <td className="px-4 py-3">{submission.name}</td>
@@ -1078,7 +1194,37 @@ const [editingSurveyId, setEditingSurveyId] = useState<string | null>(null);
                   )}
                 </tbody>
               </table>
-            </div>
+            </div>}
+
+            {/* 分頁控制 */}
+            {activeTab === "records" && totalSubmissionPages > 1 && (
+              <div className="mt-4 flex items-center justify-between text-sm text-slate-500">
+                <span>
+                  第 {(submissionsPage - 1) * SUBMISSIONS_PER_PAGE + 1}–{Math.min(submissionsPage * SUBMISSIONS_PER_PAGE, filteredSubmissions.length)} 筆，共 {filteredSubmissions.length} 筆
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSubmissionsPage((p) => Math.max(1, p - 1))}
+                    disabled={submissionsPage === 1}
+                    className="rounded-xl border border-zinc-300 bg-white px-3 py-1.5 font-medium text-slate-700 transition hover:bg-zinc-50 disabled:opacity-40"
+                  >
+                    上一頁
+                  </button>
+                  <span className="flex items-center px-2 font-medium text-slate-700">
+                    {submissionsPage} / {totalSubmissionPages}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSubmissionsPage((p) => Math.min(totalSubmissionPages, p + 1))}
+                    disabled={submissionsPage === totalSubmissionPages}
+                    className="rounded-xl border border-zinc-300 bg-white px-3 py-1.5 font-medium text-slate-700 transition hover:bg-zinc-50 disabled:opacity-40"
+                  >
+                    下一頁
+                  </button>
+                </div>
+              </div>
+            )}
           </>
         )}
       </main>

@@ -18,6 +18,7 @@ export default function SurveyPage() {
   const [justSubmitted, setJustSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(true);
   const [deadlineExpired, setDeadlineExpired] = useState(false);
   const [deadline, setDeadline] = useState<string | null>(null);
@@ -98,8 +99,8 @@ export default function SurveyPage() {
     });
   };
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const doSubmit = async () => {
+    setShowConfirmDialog(false);
     setSubmitError(null);
     setSubmitting(true);
     try {
@@ -117,6 +118,10 @@ export default function SurveyPage() {
         setDeadlineExpired(true);
         return;
       }
+      if (response.status === 401) {
+        window.location.href = "/?expired=1";
+        return;
+      }
       if (!response.ok) {
         throw new Error("送出失敗");
       }
@@ -129,6 +134,11 @@ export default function SurveyPage() {
     }
   };
 
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setShowConfirmDialog(true);
+  };
+
   const showLockedSummary = deadlineExpired && hasPreviousSubmission;
   const showDeadlineBlocked = deadlineExpired && !hasPreviousSubmission;
   const showConfirmation = justSubmitted && !deadlineExpired;
@@ -136,6 +146,56 @@ export default function SurveyPage() {
 
   return (
     <div className="min-h-screen bg-zinc-50 text-slate-900">
+      {/* 頂部 Header */}
+      {sessionReady && (
+        <header className="sticky top-0 z-10 border-b border-zinc-200 bg-white/90 backdrop-blur-sm">
+          <div className="mx-auto flex max-w-md items-center justify-between px-4 py-3">
+            <Link href="/" className="text-sm font-medium text-slate-500 transition hover:text-slate-700">
+              ← 返回
+            </Link>
+            <span className="text-sm font-semibold text-slate-700">
+              {employeeName}（{department}）
+            </span>
+          </div>
+        </header>
+      )}
+
+      {/* 確認送出 Dialog */}
+      {showConfirmDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-3xl border border-zinc-200 bg-white p-6 shadow-xl">
+            <h3 className="mb-1 text-lg font-bold text-slate-900">
+              確認{hasPreviousSubmission ? "重新送出" : "送出"}？
+            </h3>
+            <p className="mb-4 text-sm text-slate-500">
+              {selectedItems.length === 0
+                ? "您尚未選擇任何品項，確定要送出空白填答嗎？"
+                : `已選：${selectedItems.map(({ item, quantity }) =>
+                    (config?.selectionType ?? "multiple") === "single"
+                      ? item.name
+                      : `${item.name} ×${quantity}`
+                  ).join("、")}`}
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={doSubmit}
+                className="flex-1 rounded-2xl bg-slate-900 py-3 text-base font-semibold text-white transition hover:bg-slate-700"
+              >
+                確認送出
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowConfirmDialog(false)}
+                className="flex-1 rounded-2xl border border-zinc-300 bg-white py-3 text-base font-medium text-slate-700 transition hover:bg-zinc-50"
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <main className="mx-auto min-h-screen max-w-md px-4 py-8 sm:px-5 sm:py-10">
         <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm shadow-zinc-200/50">
           <div className="mb-8 text-center">
@@ -244,7 +304,16 @@ export default function SurveyPage() {
               </Link>
             </div>
           ) : loading ? (
-            <p className="text-center text-slate-600">載入中...</p>
+            <div className="space-y-4 animate-pulse">
+              <div className="h-16 w-full rounded-3xl bg-zinc-100" />
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="rounded-3xl border border-zinc-100 bg-white p-5 space-y-3">
+                  <div className="h-5 w-32 rounded-full bg-zinc-200" />
+                  <div className="h-4 w-48 rounded-full bg-zinc-100" />
+                  <div className="h-12 w-36 rounded-2xl bg-zinc-100" />
+                </div>
+              ))}
+            </div>
           ) : (
             <form className="space-y-6" onSubmit={handleSubmit}>
               <div className="rounded-3xl border border-zinc-200 bg-zinc-50 p-5">
@@ -273,7 +342,7 @@ export default function SurveyPage() {
                     <div className="mb-3">
                       <h2 className="text-xl font-semibold text-slate-900">{item.name}</h2>
                       {item.description && (
-                        <p className="mt-2 text-sm text-slate-600">{item.description}</p>
+                        <p className="mt-2 line-clamp-3 text-sm text-slate-600">{item.description}</p>
                       )}
                     </div>
                     {(config?.selectionType ?? "multiple") === "single" ? (
@@ -327,6 +396,20 @@ export default function SurveyPage() {
                   </div>
                 ))}
               </div>
+
+              {/* 即時選擇摘要 */}
+              {selectedItems.length > 0 && (
+                <div className="sticky bottom-4 rounded-2xl border border-slate-200 bg-white/90 px-4 py-3 shadow-lg shadow-zinc-200/60 backdrop-blur-sm">
+                  <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">已選擇</p>
+                  <p className="text-sm leading-relaxed text-slate-700">
+                    {selectedItems.map(({ item, quantity }) =>
+                      (config?.selectionType ?? "multiple") === "single"
+                        ? item.name
+                        : `${item.name} ×${quantity}`
+                    ).join("、")}
+                  </p>
+                </div>
+              )}
 
               <button
                 type="submit"

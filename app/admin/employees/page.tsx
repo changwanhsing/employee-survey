@@ -31,6 +31,8 @@ export default function EmployeesPage() {
 
   const [importResult, setImportResult] = useState<{ ok: boolean; msg: string; details?: string[] } | null>(null);
   const [importing, setImporting] = useState(false);
+  const [pendingImportFile, setPendingImportFile] = useState<File | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ employeeId: string; name: string } | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -80,9 +82,10 @@ export default function EmployeesPage() {
     }
   }
 
-  async function handleDelete(employeeId: string, name: string) {
-    if (!confirm(`確定要刪除員工「${name}」（${employeeId}）？`)) return;
-    await fetch(`/api/employees/${encodeURIComponent(employeeId)}`, { method: "DELETE" });
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    await fetch(`/api/employees/${encodeURIComponent(deleteTarget.employeeId)}`, { method: "DELETE" });
+    setDeleteTarget(null);
     load();
   }
 
@@ -119,10 +122,17 @@ export default function EmployeesPage() {
     XLSX.writeFile(wb, "員工名冊匯入範本.xlsx");
   }
 
-  async function handleImport(event: ChangeEvent<HTMLInputElement>) {
+  function handleImport(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
+    setPendingImportFile(file);
+  }
+
+  async function confirmImport() {
+    if (!pendingImportFile) return;
+    const file = pendingImportFile;
+    setPendingImportFile(null);
     setImporting(true);
     setImportResult(null);
     try {
@@ -145,6 +155,57 @@ export default function EmployeesPage() {
 
   return (
     <div className="min-h-screen bg-zinc-50 text-slate-900">
+      {/* 匯入確認 Dialog */}
+      {pendingImportFile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-3xl border border-zinc-200 bg-white p-6 shadow-xl">
+            <h3 className="mb-2 text-lg font-bold text-slate-900">確認匯入員工名冊？</h3>
+            <p className="mb-1 text-sm text-slate-600">
+              檔案：<span className="font-medium">{pendingImportFile.name}</span>
+            </p>
+            <p className="mb-5 text-sm text-red-600">
+              ⚠️ 匯入將會覆蓋現有的全部 {employees.length} 筆員工資料，此操作無法還原。
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={confirmImport}
+                className="flex-1 rounded-2xl bg-red-600 py-3 text-base font-semibold text-white transition hover:bg-red-700"
+              >
+                確認覆蓋匯入
+              </button>
+              <button
+                type="button"
+                onClick={() => setPendingImportFile(null)}
+                className="flex-1 rounded-2xl border border-zinc-300 bg-white py-3 text-base font-medium text-slate-700 transition hover:bg-zinc-50"
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 刪除確認 Dialog */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-3xl border border-zinc-200 bg-white p-6 shadow-xl">
+            <h3 className="mb-2 text-lg font-bold text-slate-900">確認刪除員工？</h3>
+            <p className="mb-5 text-sm text-slate-600">
+              即將刪除 <span className="font-semibold text-slate-900">「{deleteTarget.name}」（{deleteTarget.employeeId}）</span>，此操作無法還原。
+            </p>
+            <div className="flex gap-3">
+              <button type="button" onClick={confirmDelete} className="flex-1 rounded-2xl bg-red-600 py-3 text-base font-semibold text-white transition hover:bg-red-700">
+                確認刪除
+              </button>
+              <button type="button" onClick={() => setDeleteTarget(null)} className="flex-1 rounded-2xl border border-zinc-300 bg-white py-3 text-base font-medium text-slate-700 transition hover:bg-zinc-50">
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <main className="mx-auto min-h-screen max-w-5xl px-4 py-8 sm:px-5 sm:py-10">
         {/* Header */}
         <div className="mb-8 flex items-center justify-between">
@@ -302,7 +363,7 @@ export default function EmployeesPage() {
                             <button type="button" onClick={() => startEdit(emp)} className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-zinc-50">
                               編輯
                             </button>
-                            <button type="button" onClick={() => handleDelete(emp.employeeId, emp.name)} className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-50">
+                            <button type="button" onClick={() => setDeleteTarget({ employeeId: emp.employeeId, name: emp.name })} className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-50">
                               刪除
                             </button>
                           </div>

@@ -51,7 +51,9 @@ export default function DeadlineBanner() {
       }`}
     >
       {isExpired ? (
-        <p className="font-semibold">收件已截止</p>
+        <p className="font-semibold">
+          收件已截止（{new Date(deadline).toLocaleString("zh-TW")}）
+        </p>
       ) : (
         <p>
           <span className="font-semibold">距離收件截止還有 {formatRemaining(remaining)}</span>

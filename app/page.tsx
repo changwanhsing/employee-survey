@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import DeadlineBanner from "./components/DeadlineBanner";
 
@@ -14,8 +14,14 @@ export default function Home() {
   const [surveyTitle, setSurveyTitle] = useState<string>("");
   const [existingSession, setExistingSession] = useState<{ name: string; employeeId: string } | null>(null);
   const [sessionChecked, setSessionChecked] = useState(false);
+  const [sessionExpired, setSessionExpired] = useState(false);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("expired") === "1") {
+      setSessionExpired(true);
+      window.history.replaceState({}, "", "/");
+    }
     Promise.all([
       fetch("/api/survey-config").then((res) => res.json()),
       fetch("/api/session").then((res) => res.json()),
@@ -36,6 +42,7 @@ export default function Home() {
   const [otpError, setOtpError] = useState<string | null>(null);
   const [otpLoading, setOtpLoading] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const otpInputRef = useRef<HTMLInputElement>(null);
 
   async function handleLookup(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -71,6 +78,7 @@ export default function Home() {
       }
       setStep({ type: "otp", employeeId: trimmedId, maskedEmail: data.maskedEmail });
       startResendCooldown();
+      setTimeout(() => otpInputRef.current?.focus(), 50);
     } catch {
       setLookupError("伺服器發生錯誤，請稍後再試");
     } finally {
@@ -140,7 +148,16 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-zinc-50 text-slate-900">
       <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4 py-8 sm:px-5 sm:py-10">
-        <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm shadow-zinc-200/50">
+        {!sessionChecked && (
+          <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm shadow-zinc-200/50 space-y-5 animate-pulse">
+            <div className="mx-auto h-4 w-20 rounded-full bg-zinc-200" />
+            <div className="mx-auto h-8 w-48 rounded-2xl bg-zinc-200" />
+            <div className="mx-auto h-4 w-56 rounded-full bg-zinc-200" />
+            <div className="h-14 w-full rounded-2xl bg-zinc-100" />
+            <div className="h-14 w-full rounded-2xl bg-zinc-200" />
+          </div>
+        )}
+        {sessionChecked && <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm shadow-zinc-200/50">
           <div className="mb-8 text-center">
             <p className="text-sm font-semibold uppercase tracking-[0.3em] text-zinc-500">
               調查系統
@@ -151,6 +168,11 @@ export default function Home() {
             <p className="mt-2 text-sm text-slate-600">
               {step.type === "lookup" ? "請輸入您的員工工號以接收驗證碼。" : "請輸入寄送至您信箱的驗證碼。"}
             </p>
+            {sessionExpired && (
+              <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                登入已逾時，請重新驗證身分後再送出。
+              </div>
+            )}
             <DeadlineBanner />
           </div>
 
@@ -183,6 +205,8 @@ export default function Home() {
                     value={employeeId}
                     onChange={(e) => setEmployeeId(e.target.value)}
                     placeholder="例如 10001"
+                    inputMode="numeric"
+                    autoComplete="off"
                     className="w-full rounded-2xl border border-zinc-300 bg-zinc-50 px-4 py-4 text-xl text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
                   />
                 </div>
@@ -214,12 +238,14 @@ export default function Home() {
                 </label>
                 <input
                   id="otp"
+                  ref={otpInputRef}
                   value={otp}
                   onChange={(e) => setOtp(e.target.value)}
-                  placeholder="請輸入 6 位數驗證碼"
+                  placeholder="○○○○○○"
                   maxLength={6}
                   inputMode="numeric"
-                  className="w-full rounded-2xl border border-zinc-300 bg-zinc-50 px-4 py-4 text-2xl tracking-[0.5em] text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200 placeholder:tracking-normal placeholder:text-sm"
+                  autoComplete="one-time-code"
+                  className="w-full rounded-2xl border border-zinc-300 bg-zinc-50 px-4 py-4 text-2xl tracking-[0.5em] text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200 placeholder:tracking-[0.3em] placeholder:text-slate-300"
                 />
               </div>
               <button
@@ -251,7 +277,7 @@ export default function Home() {
               )}
             </form>
           )}
-        </div>
+        </div>}
       </main>
     </div>
   );

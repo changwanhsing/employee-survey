@@ -163,6 +163,28 @@ export async function activateSurvey(id: string): Promise<void> {
   await supabase.from("survey_config").update({ is_active: true }).eq("id", id);
 }
 
+/** 管理端：複製活動（新活動為草稿，名稱加「（複製）」） */
+export async function duplicateSurvey(id: string): Promise<string | null> {
+  const source = await getSurveyById(id);
+  if (!source) return null;
+  const { data, error } = await supabase
+    .from("survey_config")
+    .insert({
+      id: crypto.randomUUID(),
+      survey_name: `${source.surveyName || source.title}（複製）`,
+      title: source.title,
+      items: source.items,
+      deadline: null,
+      selection_type: source.selectionType ?? "multiple",
+      is_active: false,
+      updated_at: new Date().toISOString(),
+    })
+    .select("id")
+    .single();
+  if (error || !data) return null;
+  return data.id;
+}
+
 /** 管理端：刪除活動 */
 export async function deleteSurvey(id: string): Promise<void> {
   await supabase.from("survey_config").delete().eq("id", id);
